@@ -82,6 +82,12 @@ export function uiFixture(name, chrome) {
     sandbox,
   );
   const source = readFileSync(new URL(`../../extension/${name}.js`, import.meta.url), "utf8");
+  if (name === "popup") {
+    vm.runInContext(
+      readFileSync(new URL("../../extension/popup-view.js", import.meta.url), "utf8"),
+      sandbox,
+    );
+  }
   vm.runInContext(source.replace(/^import .*;\r?\n/gm, ""), sandbox);
   return { get, all, poll: () => interval?.(), close: () => events.get("pagehide")?.(), sandbox };
 }

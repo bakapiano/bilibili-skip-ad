@@ -42,17 +42,46 @@
         <p class="lead">从视频字幕中识别赞助口播等广告片段，在进度条上标记，并按设置自动跳过。</p>
         <p>识别使用你自己的 DeepSeek API Key。已有结果会优先从本地或共享缓存读取。</p>
         <div class="download-row">
-          <a class="download" href="/downloads/biliskip-{{VERSION}}.zip" download
-            >下载 v{{VERSION}}（ZIP）</a
+          <a class="download" href="/downloads/biliskip.zip" download
+            >下载插件 v{{VERSION}}（ZIP）</a
           ><a href="#install">安装说明</a
           ><a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
             >源代码</a
           >
         </div>
+        <p class="download-address">
+          固定下载地址：<a href="/downloads/biliskip.zip" download
+            >https://biliskipad.bakapiano.com/downloads/biliskip.zip</a
+          >
+        </p>
         <p class="release-note">
-          Chrome 120+ · 解压后通过开发者模式加载 ·
+          扩展运行包 · 解压后加载文件夹 · Chrome 120+ ·
           <a href="/downloads/biliskip-{{VERSION}}.zip.sha256">SHA-256</a>
         </p>
+      </section>
+
+      <section id="install" class="section install">
+        <h2>下载后怎么安装</h2>
+        <ol class="steps">
+          <li>
+            <a href="/downloads/biliskip.zip" download>下载插件 ZIP</a>，解压到固定文件夹，例如
+            <code>BiliSkip</code>。
+          </li>
+          <li>在 Chrome 地址栏输入 <code>chrome://extensions</code>，开启右上角「开发者模式」。</li>
+          <li>
+            点击「加载已解压的扩展程序」，选择刚才解压出的、包含
+            <code>manifest.json</code> 的文件夹。
+          </li>
+          <li>
+            打开 B站视频，点击工具栏的 BiliSkip 图标。需要新识别时，在设置中填写个人 DeepSeek API
+            Key 并确认字幕发送授权。
+          </li>
+        </ol>
+        <p class="note">
+          本页提供 ZIP 离线加载包，导入时选择解压后的文件夹。Chrome 商店发布版使用「添加至
+          Chrome」安装。
+        </p>
+        <p class="note">更新时，将新版本解压到原扩展目录，在扩展管理页重新加载，再刷新视频页。</p>
       </section>
 
       <section class="screenshots" aria-labelledby="screenshot-title">
@@ -84,27 +113,6 @@
             <figcaption>同一视频的广告标记：02:46.9–03:22.7。</figcaption>
           </figure>
         </details>
-      </section>
-
-      <section id="install" class="section">
-        <h2>安装与使用</h2>
-        <ol class="steps">
-          <li>
-            <a href="/downloads/biliskip-{{VERSION}}.zip" download>下载 ZIP</a>，解压到固定目录。
-          </li>
-          <li>
-            打开
-            <code>chrome://extensions</code
-            >，开启「开发者模式」，点击「加载已解压的扩展程序」，选择包含
-            <code>manifest.json</code> 的文件夹。
-          </li>
-          <li>在扩展设置中填写 DeepSeek API Key，并确认字幕发送授权。</li>
-          <li>
-            打开 B站视频，点击工具栏的 BiliSkip
-            图标。可以先读取缓存，或点击「分析当前视频」，试听边界后开启自动跳过。
-          </li>
-        </ol>
-        <p class="note">更新时，将新版本解压到原扩展目录，在扩展管理页重新加载，再刷新视频页。</p>
       </section>
 
       <section id="features" class="section">

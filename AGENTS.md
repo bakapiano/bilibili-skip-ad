@@ -5,11 +5,14 @@
 BiliSkip 是原生 JavaScript Chrome Manifest V3 扩展，使用 DeepSeek 分析 B站字幕，
 通过 IndexedDB 保存标记并控制视频跳过。项目同时提供可选的自部署共享缓存后端。
 保持浏览器直接加载 `extension/` 的工作方式，发布包仅包含该目录。
+油猴版通过 esbuild 打包共享模块，平台适配代码位于 `userscript/`。
 
 ## 目录约定
 
 - `extension/`：扩展页面、播放器行为和运行时代码。
 - `extension/lib/`：字幕、模型、存储、校验和消息模块。
+- `userscript/`：Tampermonkey 网络、GM 存储、菜单与入口；业务逻辑复用 `extension/`，产物位于 `dist/biliskip.user.js`。
+- `tests/userscript/`：油猴适配、构建和端到端模拟回归。
 - `server/`：Node 原生 HTTP + SQLite 共享缓存服务，独立于扩展运行和打包。
 - `server/site/`：官网静态页面与公开截图；`scripts/build-site.js` 构建到 `.tmp/site-build/`，由部署脚本与扩展下载包一起发布。
 - `tests/extension/`：可重复执行的扩展单元测试、回归测试与固定测试数据。
@@ -64,5 +67,7 @@ npm run pack
 - 原生 `fetch` 作为客户端成员保存时，保留 `fetcher.bind(globalThis)`。
 - 模型与提示词的语义变化同步评估版本号、缓存身份和回归用例。
 - 真实付费 API 测试独立执行；常规回归使用模拟请求。
+- 两个平台共用字幕、提示词、缓存协议、播放器控制器和面板视图；平台凭据、权限与生命周期分别适配。
+- 油猴 Key 保存在 GM 专属存储，保持 DOM 隔离、请求域名白名单、重定向拒绝和跨标签页任务锁。
 - 保留用户已有的本地数据和工作区改动；清理临时文件时核对具体路径。
 - 提交前检查暂存区和凭据扫描结果，按用户请求执行提交与推送。

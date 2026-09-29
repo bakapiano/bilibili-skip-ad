@@ -59,18 +59,33 @@ export default defineConfig([
     name: "biliskip/browser",
     files: [
       "extension/content.js",
+      "extension/content-controller.js",
       "extension/player-core.js",
       "extension/timeline.js",
       "extension/options.js",
       "extension/popup.js",
+      "extension/popup-view.js",
     ],
     languageOptions: {
       globals: { ...globals.browser, chrome: "readonly" },
     },
   },
   {
+    name: "biliskip/userscript",
+    files: ["userscript/**/*.js"],
+    languageOptions: {
+      globals: { ...globals.browser, GM: "readonly" },
+    },
+  },
+  {
     name: "biliskip/classic-scripts",
-    files: ["extension/content.js", "extension/player-core.js", "extension/timeline.js"],
+    files: [
+      "extension/content.js",
+      "extension/content-controller.js",
+      "extension/player-core.js",
+      "extension/timeline.js",
+      "extension/popup-view.js",
+    ],
     languageOptions: { sourceType: "script" },
   },
 ]);

@@ -10,6 +10,10 @@ const playerSource = readFileSync(
   "utf8",
 );
 const contentSource = readFileSync(new URL("../../extension/content.js", import.meta.url), "utf8");
+const controllerSource = readFileSync(
+  new URL("../../extension/content-controller.js", import.meta.url),
+  "utf8",
+);
 const timelineSource = readFileSync(
   new URL("../../extension/timeline.js", import.meta.url),
   "utf8",
@@ -162,6 +166,7 @@ function fixture({
   vm.createContext(sandbox);
   vm.runInContext(playerSource, sandbox);
   vm.runInContext(timelineSource, sandbox);
+  vm.runInContext(controllerSource, sandbox);
   vm.runInContext(contentSource, sandbox);
   const control = (
     data,

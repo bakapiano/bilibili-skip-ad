@@ -26,6 +26,7 @@ test("ESLint covers all maintained JavaScript sources and module extensions", as
   const files = [
     "eslint.config.js",
     ...(await sources("extension")),
+    ...(await sources("userscript")),
     ...(await sources("scripts")),
     ...(await sources("server")),
     ...(await sources("tests")),

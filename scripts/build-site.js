@@ -47,10 +47,16 @@ export async function buildSite(outputRoot, archivePath) {
     const name = `biliskip-${version}.zip`;
     const downloadRoot = path.join(outputRoot, "site/downloads");
     await mkdir(downloadRoot, { recursive: true });
-    await copyFile(archivePath, path.join(downloadRoot, name));
     const hash = createHash("sha256").update(archive).digest("hex");
-    await writeFile(path.join(downloadRoot, `${name}.sha256`), `${hash}  ${name}\n`, "utf8");
-    files.push(`downloads/${name}`, `downloads/${name}.sha256`);
+    for (const filename of [name, "biliskip.zip"]) {
+      await copyFile(archivePath, path.join(downloadRoot, filename));
+      await writeFile(
+        path.join(downloadRoot, `${filename}.sha256`),
+        `${hash}  ${filename}\n`,
+        "utf8",
+      );
+      files.push(`downloads/${filename}`, `downloads/${filename}.sha256`);
+    }
   }
   return { version, assetVersion, files: files.map((file) => `site/${file}`) };
 }

@@ -107,6 +107,8 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 - `/`：产品介绍、功能、原图截图、安装步骤和使用说明。
 - `/privacy.html`：公开的隐私与数据说明；`/privacy` 跳转到该页面。
 - `/assets/`：本站图标与真实截图。
+- `/downloads/biliskip.zip`：固定扩展下载地址，内容随当前部署版本更新，要求缓存重新验证。
+- `/downloads/biliskip.zip.sha256`：固定下载地址的 SHA-256 校验值。
 - `/downloads/biliskip-0.1.4.zip`：与当前扩展源码一致的商店上传包。
 - `/downloads/biliskip-0.1.4.zip.sha256`：下载包校验值。
 - `/v1/` 与 `/healthz`：继续代理到原 Node 服务。
@@ -126,3 +128,4 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 - 0.1.4 下载 ZIP 共 22 个扩展文件、47,143 字节，SHA-256 为 `c42f72ac003df8af0657f6c02be2d34cf4806d3619e4df643f3b585c451ab55d`。
 - 官网相关变更后 132 项测试通过。实际 Chrome 桌面/窄屏布局、FAQ、导航、隐私页和 ZIP 下载事件验收通过，详见 [SITE_E2E_REPORT.md](SITE_E2E_REPORT.md)。
 - 2026-09-29：按用户反馈改为白底工具文档排版，标题调整为「B站植入广告跳过插件」，移除宣传标语和装饰示意图，截图更换为播放器原图裁切。部署版本 `20260929-192442-40bfbf2cf9a6`；132 项测试、线上下载和原 API 复验通过。
+- 2026-09-29：部署版本 `20260929-201750-7d6e14988226` 增加固定下载地址 `/downloads/biliskip.zip` 与校验值，首页在截图前展示安装步骤。133 项测试通过；公网 ZIP 验证为 0.1.4、22 个文件、根目录含 `manifest.json`，与版本包 SHA-256 一致。

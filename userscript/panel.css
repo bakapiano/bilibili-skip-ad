@@ -1,0 +1,52 @@
+:host {
+  all: initial;
+  color-scheme: dark;
+  font:
+    13px/1.55 system-ui,
+    sans-serif;
+}
+dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 10px;
+  width: min(430px, calc(100vw - 32px));
+  max-height: 88vh;
+  overflow: auto;
+  background: #111b2b;
+  color: #ecf2ff;
+  border: 1px solid #52647f;
+  border-radius: 12px;
+  font: inherit;
+}
+dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+main {
+  max-height: none;
+  overflow: visible;
+  clear: both;
+}
+#close-panel {
+  float: right;
+}
+#settings-panel {
+  padding: 14px;
+  border-top: 1px solid #34465e;
+}
+#settings-panel p {
+  font-size: 12px;
+}
+label {
+  display: block;
+  margin: 10px 0;
+}
+input[type="checkbox"] {
+  margin-right: 8px;
+}
+input[type="number"] {
+  width: 70px;
+  color: #ecf2ff;
+  background: #25354d;
+  padding: 4px;
+}

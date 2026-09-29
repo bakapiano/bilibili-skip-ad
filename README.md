@@ -5,8 +5,11 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 
 当前版本：`0.1.4`。
 
+另提供 [油猴版 `0.1.4.1`](userscript/README.md)，复用字幕、模型、缓存协议、播放器控制器和面板视图。构建产物为 `dist/biliskip.user.js`。
+
 - [官网与使用说明](https://biliskipad.bakapiano.com/)
 - [下载 0.1.4 扩展 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip) · [SHA-256 校验值](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip.sha256)
+- [固定下载地址（随当前版本更新）](https://biliskipad.bakapiano.com/downloads/biliskip.zip)
 - [隐私与数据说明](https://biliskipad.bakapiano.com/privacy.html)
 - [问题反馈](https://github.com/bakapiano/bilibili-skip-ad/issues)
 
@@ -31,6 +34,12 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 运行环境为 Chrome 120+。通过已解压目录加载扩展时，运行代码可直接使用；Node.js 用于开发、测试、打包和自部署后端。
 
 更新时保留原扩展目录，在扩展管理页重新加载，再刷新 B站视频页。关闭弹窗后，已开始的分析、上传和自动跳过继续运行。
+
+### 油猴版
+
+运行 `npm run build:userscript` 后，在 Tampermonkey 5.4+ 添加新脚本，将 `dist/biliskip.user.js` 的完整内容替换默认模板并保存。
+刷新 B站视频页，从油猴菜单打开 BiliSkip 面板与设置，配置个人 Key。操作面板按需打开，视频进度条持续显示广告标记。
+两个版本各自保存本地数据，共用线上缓存；请选一个版本控制播放器。安装与代码共享说明见 [userscript/README.md](userscript/README.md)。
 
 ## 默认设置
 
@@ -59,6 +68,7 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 ```text
 extension/           Chrome 扩展运行代码、页面和样式
   lib/               字幕、模型、缓存、校验及消息模块
+userscript/          油猴入口、GM 网络／存储适配与按需面板
 tests/               扩展、共享服务、官网构建与工具链回归测试
 scripts/             项目检查和打包工具
 server/              Node HTTP + SQLite 共享缓存后端
@@ -85,12 +95,14 @@ npm test
 npm run verify
 npm run pack
 npm run pack:store
+npm run build:userscript
 ```
 
 - `lint` 检查全部项目 JavaScript，包括扩展、正式测试、开发工具及配置文件。
 - `lint:fix` 自动修复可处理的 ESLint 问题，`format` 统一 JS、JSON、HTML、CSS 和 Markdown 排版。
 - `verify` 顺序执行 ESLint、格式检查、扩展资源/CSP/凭据检查和正式回归测试。
 - `pack` / `pack:store` 先运行 `verify`，再把 `extension/` 打包到 `dist/`，生成 ZIP 与 SHA-256 文件。后端和官网独立部署。
+- `build:userscript` 将共享业务与油猴适配打包成单文件及 SHA-256；发布前运行 `verify`。
 - 依赖、临时脚本、本地数据和生成产物按配置隔离于正式检查范围。
 
 临时接口探测和人工浏览器验证脚本统一放入 `.tmp/`；长期回归用例保留在 `tests/`。
@@ -135,12 +147,15 @@ npm run build:site -- dist/<扩展上传包>.zip
 
 ## 验证状态
 
-截至 2026-09-29，`npm run verify` 通过 **132 项测试（含子用例）**，覆盖字幕回退、缓存、自动上传、弹窗消息、播放器行为、服务端限流与官网构建。
+截至 2026-09-29，`npm run verify` 通过 **149 项测试（含子用例）**，覆盖字幕回退、缓存、自动上传、弹窗消息、播放器行为、服务端限流、官网构建与油猴单文件模拟集成流程。
 真实 Chrome、线上接口与模拟测试的验收范围分别记录在以下文档中。
 
 ## 文档
 
 - [扩展安装、架构和开发说明](EXTENSION.md)
+- [油猴安装与代码共享说明](userscript/README.md)
+- [油猴自动化与实机验收状态](userscript/VALIDATION.md)
+- [一分钟介绍视频稿](store/intro-video-script.md)
 - [0.1.4 工具栏弹窗与自动上传回归](POPUP_REGRESSION.md)
 - [真实 Chrome E2E 验收记录](CHROME_E2E_REPORT.md)
 - [验收状态与历史排查](E2E_STATUS.md)

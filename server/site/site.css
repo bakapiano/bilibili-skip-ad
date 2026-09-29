@@ -138,6 +138,15 @@ p {
   font-size: 12px;
   margin-top: 13px;
 }
+.download-address {
+  overflow-wrap: anywhere;
+}
+.section.install {
+  margin-top: 0;
+}
+.screenshots {
+  margin-top: 35px;
+}
 h2 {
   font-size: 21px;
   font-weight: 650;
