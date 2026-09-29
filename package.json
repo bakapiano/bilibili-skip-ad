@@ -1,0 +1,16 @@
+{
+  "name": "biliskip-extension",
+  "version": "0.1.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs tests/extension/*.test.js",
+    "check": "node scripts/check-extension.js",
+    "smoke:live": "node scripts/smoke-live.js",
+    "fixture:browser": "node scripts/browser-fixture-server.js",
+    "pack": "powershell -NoProfile -File scripts/package-extension.ps1"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.5"
+  }
+}

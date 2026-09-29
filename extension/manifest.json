@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "BiliSkip · AI 广告跳过",
+  "version": "0.1.2",
+  "description": "读取 B站字幕，直连个人 DeepSeek API，使用本地数据库保存广告标记并跳过。",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.bilibili.com/*",
+    "https://api.bilibili.com/*",
+    "https://*.hdslb.com/*",
+    "https://api.deepseek.com/*"
+  ],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{
+    "matches": ["https://www.bilibili.com/video/*"],
+    "js": ["player-core.js", "timeline.js", "content.js"],
+    "run_at": "document_idle",
+    "all_frames": false
+  }],
+  "action": { "default_title": "BiliSkip", "default_popup": "popup.html" },
+  "options_page": "options.html",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
+  }
+}

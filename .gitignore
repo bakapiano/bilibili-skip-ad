@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+.models/
+.runtime/
+data/
+runs/
+*.log
+.env
+.env.*
+!.env.example
+node_modules/
+dist/

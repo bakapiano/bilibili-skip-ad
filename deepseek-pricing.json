@@ -1,0 +1,20 @@
+{
+  "model": "deepseek-flash",
+  "model_version": "DeepSeek-V4.1-Flash",
+  "currency": "CNY",
+  "as_of": "2026-09-28",
+  "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+  "unit": "per_million_tokens",
+  "off_peak": {
+    "input_cache_hit": "0.02",
+    "input_cache_miss": "1",
+    "output": "4"
+  },
+  "peak": {
+    "input_cache_hit": "0.04",
+    "input_cache_miss": "2",
+    "output": "8"
+  },
+  "peak_schedule": "北京时间周一至周五（中国法定节假日除外）09:00–12:00、14:00–18:00；其他时间为空闲时段。",
+  "note": "价格快照，仅用于结合 API usage 估算费用。以调用时的官方价格及账单为准。"
+}

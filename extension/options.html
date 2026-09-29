@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BiliSkip 设置</title><link rel="stylesheet" href="options.css"></head>
+<body><main>
+  <header class="hero"><div><p class="eyebrow">字幕识别 · 本地保存</p><h1>BiliSkip</h1><p>用你的 DeepSeek Key，识别视频内的商业植入。</p></div><span class="version">Chrome 扩展 · 0.1.2</span></header>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <form id="settings-form">
+    <section class="card"><h2>模型与隐私</h2><p>模型固定为 <code>deepseek-flash</code>，采用非思考模式和 JSON 输出。</p>
+      <label for="api-key">DeepSeek API Key</label><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="填写 Key；已配置时留空即可保留"><p id="key-status" class="hint"></p>
+      <label class="check"><input type="checkbox" id="consent">我同意将当前视频标题和字幕发送至 DeepSeek 进行广告识别。</label>
+      <p class="hint">Key 存放在当前浏览器的扩展专属存储，访问范围限于扩展后台和设置页。请使用专用额度 Key。本机扩展存储适合保存个人设置，应与电脑账号一起保护。</p>
+    </section>
+    <section class="card"><h2>播放行为</h2>
+      <label class="check"><input type="checkbox" id="auto-analyze">打开前台视频时自动分析（按 DeepSeek token 用量计费）</label>
+      <label class="check"><input type="checkbox" id="auto-skip">自动跳过满足阈值的广告区间</label>
+      <label for="threshold">自动跳过最低自评分</label><input id="threshold" type="number" min="0.75" max="1" step="0.01" value="0.9">
+      <p class="hint">建议先试听边界。标记累计超过视频一半时保留手动操作；撤销后本轮会保留对应片段。评分是模型自评，适合配合人工检查。</p>
+      <p class="hint">原生进度条的金色区间表示广告。自动跳过开启时，主动定位进符合阈值的广告区间会跳至末尾；暂停时的定位也会响应，播放与暂停行为沿用 B站原生控件。</p>
+    </section>
+    <section class="card"><h2>共享服务接口 <span class="tag">预留 · 默认关闭</span></h2>
+      <p>用于未来自部署的公开 HTTPS 服务。地址与协议详见项目文档。</p>
+      <label for="shared-url">服务域名</label><input id="shared-url" type="url" placeholder="https://cache.example.com" autocomplete="off">
+      <label for="shared-token">共享服务访问令牌（可选）</label><input id="shared-token" type="password" autocomplete="off" placeholder="与 DeepSeek Key 独立；留空保留已有值">
+      <label class="check"><input type="checkbox" id="shared-read">查询共享缓存（发送视频标识、字幕指纹与模型版本）</label>
+      <label class="check"><input type="checkbox" id="shared-upload">允许手动上传候选标记（发送广告区间与证据片段）</label>
+      <p class="hint">本版以本地数据库优先。共享适配器仅发送约定字段；授权范围为你填写的服务域名。上传动作由视频面板单独触发。</p>
+    </section>
+    <div class="form-actions"><button class="primary" id="save" type="submit">保存设置</button><button id="clear-key" type="button">清除本机 DeepSeek Key</button></div>
+  </form>
+  <section class="card"><div class="section-heading"><h2>本地数据库</h2><button id="refresh-cache" type="button">刷新缓存列表</button></div>
+    <div id="stats" class="stats"></div><p class="hint">缓存以视频 BV、分 P、CID、字幕指纹、模型和提示词版本区分。重新进入视频时先核对字幕，命中后复用结果。</p>
+    <div id="cache-list"></div><div class="form-actions"><button id="export-cache" type="button">导出标记 JSON</button><button id="clear-cache" type="button" class="danger">清空本地标记与字幕缓存</button></div>
+  </section>
+  <footer>仅供个人视频体验辅助。广告判断会有误差，欢迎使用试听和撤销核对。</footer>
+</main><script type="module" src="options.js"></script></body></html>

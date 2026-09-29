@@ -1,0 +1,9 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>BiliSkip 原生媒体回归</title>
+<style>body{font:16px/1.6 system-ui;margin:35px;color:#213547}.bpx-player-container{width:720px;max-width:80vw;position:relative}video{width:100%;height:180px;background:#17232f}.bpx-player-progress-area{height:20px;padding:7px 0;position:relative;cursor:pointer}.bpx-player-progress-schedule-wrap{position:absolute;width:100%;height:6px;background:#bdcbd5}.bpx-player-shadow-progress-schedule-wrap{position:relative;width:100%;height:3px;background:#bdcbd5;margin-top:8px}.current{height:100%;width:0;background:#00aeec}button{margin:5px;padding:8px}pre{white-space:pre-wrap;background:#eef3f7;padding:15px;width:720px;max-width:80vw}h1{font-size:24px}</style>
+</head><body><h1>BiliSkip · 原生媒体与进度条回归</h1><p>合成静音媒体；使用生产内容脚本与时间轴组件，Chrome 消息与视频身份使用测试替身。</p>
+<div class="bpx-player-container"><video id="media" controls muted preload="auto" src="/fixture.wav?video=one"></video>
+<div class="bpx-player-progress-area" role="slider" aria-label="模拟原生进度条" tabindex="0"><div class="bpx-player-progress-schedule-wrap"><div class="current"></div></div></div>
+<div class="bpx-player-shadow-progress-schedule-wrap"><div class="current"></div></div></div>
+<div><button id="seek12">定位到 12 秒</button><button id="seek15">定位到 15 秒</button><button id="play8">从 8 秒开始播放</button><button id="pause">暂停媒体</button><button id="route">切换推荐视频</button><button id="remount">重建进度条</button></div>
+<pre id="media-report">媒体加载中…</pre>
+<script src="/extension/player-core.js"></script><script src="/extension/timeline.js"></script><script type="module" src="/player-fixture.js"></script></body></html>
