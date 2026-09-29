@@ -2,7 +2,7 @@
 
 测试日期：2026-09-29。使用 computer-use 操作真实 Chrome，页面运行生产 `player-core.js`、`timeline.js`、`content.js`。
 
-fixture 使用 100 秒静音 WAV 驱动真实 HTMLVideoElement，覆盖真实 `seeking` / `seeked` 事件。Chrome 消息、广告结果及 B站视频身份使用明确的测试替身；实际 B站安装后的验收单独记录在 `E2E_STATUS.md`。
+fixture 使用 100 秒静音 WAV 驱动真实 HTMLVideoElement，覆盖真实 `seeking` / `seeked` 事件。Chrome 消息、广告结果及 B站视频身份使用明确的测试替身；实际 B站安装后的验收单独记录在 [验收状态与历史排查](e2e-status.md)。
 
 ## 已观察到的浏览器行为
 

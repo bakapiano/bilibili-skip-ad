@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,31 @@ import * as prettier from "prettier";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const eslint = new ESLint({ cwd: root });
+
+test("MIT declarations match and distributable archives retain the license", async () => {
+  const license = await readFile(path.join(root, "LICENSE"), "utf8");
+  assert.match(license, /^MIT License\n/);
+  assert.match(license, /Copyright \(c\) 2026 bakapiano/);
+  assert.equal(await readFile(path.join(root, "extension/LICENSE"), "utf8"), license);
+  for (const [file, manifest] of [
+    ["package.json", (data) => data],
+    ["package-lock.json", (data) => data.packages[""]],
+  ]) {
+    assert.equal(
+      manifest(JSON.parse(await readFile(path.join(root, file), "utf8"))).license,
+      "MIT",
+    );
+  }
+  assert.match(
+    await readFile(path.join(root, "scripts/package-extension.ps1"), "utf8"),
+    /FullName -ne 'LICENSE'/,
+  );
+  assert.match(await readFile(path.join(root, "server/deploy.ps1"), "utf8"), /'LICENSE',/);
+  assert.match(
+    await readFile(path.join(root, "server/deploy/install.sh"), "utf8"),
+    /LICENSE\|package\.json/,
+  );
+});
 
 test("ESLint covers all maintained JavaScript sources and module extensions", async () => {
   async function sources(directory) {

@@ -19,6 +19,11 @@ async function walk(directory) {
   return result;
 }
 const files = await walk(root);
+assert.equal(
+  await readFile(path.join(root, "LICENSE"), "utf8"),
+  await readFile(path.join(root, "../LICENSE"), "utf8"),
+  "Extension license must match the repository license.",
+);
 const manifest = JSON.parse(await readFile(path.join(root, "manifest.json"), "utf8"));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.background.type, "module");

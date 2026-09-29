@@ -64,7 +64,7 @@ npm run deploy:server
 使用已打包的扩展时，可直接调用 PowerShell 入口：
 
 ```powershell
-powershell -NoProfile -File server/deploy.ps1 -ExtensionArchive dist/biliskip-0.1.4-chrome-web-store-20260929-190955.zip
+powershell -NoProfile -File server/deploy.ps1 -ExtensionArchive dist/biliskip-0.1.4-20260929-222944.zip
 ```
 
 指定 ZIP 会先运行 `verify`，并逐文件比对 ZIP 与当前 `extension/` 源码的哈希；二者一致后才发布。
@@ -104,7 +104,7 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 
 ## 官网路由
 
-- `/`：产品介绍、功能、原图截图、安装步骤和使用说明。
+- `/`：产品介绍、功能、原图截图、Chrome / 油猴安装方式切换和对应使用说明。
 - `/privacy.html`：公开的隐私与数据说明；`/privacy` 跳转到该页面。
 - `/assets/`：本站图标与真实截图。
 - `/downloads/biliskip.zip`：固定扩展下载地址，内容随当前部署版本更新，要求缓存重新验证。
@@ -114,6 +114,8 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 - `/v1/` 与 `/healthz`：继续代理到原 Node 服务。
 
 官网采用静态 HTML/CSS 与同域资源，Nginx 通过 CSP、内容类型校验头和框架嵌入限制保护页面。版本下载路径随扩展版本构建；CSS 查询参数按内容哈希更新。
+安装方式切换使用原生单选控件与 CSS，油猴安装按钮链接到 Greasy Fork 的正式脚本页。
+油猴脚本位于第一项并默认选中，Chrome 扩展位于第二项。
 
 ## 验收记录
 
@@ -129,3 +131,6 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 - 官网相关变更后 132 项测试通过。实际 Chrome 桌面/窄屏布局、FAQ、导航、隐私页和 ZIP 下载事件验收通过，详见 [SITE_E2E_REPORT.md](SITE_E2E_REPORT.md)。
 - 2026-09-29：按用户反馈改为白底工具文档排版，标题调整为「B站植入广告跳过插件」，移除宣传标语和装饰示意图，截图更换为播放器原图裁切。部署版本 `20260929-192442-40bfbf2cf9a6`；132 项测试、线上下载和原 API 复验通过。
 - 2026-09-29：部署版本 `20260929-201750-7d6e14988226` 增加固定下载地址 `/downloads/biliskip.zip` 与校验值，首页在截图前展示安装步骤。133 项测试通过；公网 ZIP 验证为 0.1.4、22 个文件、根目录含 `manifest.json`，与版本包 SHA-256 一致。
+- 2026-09-29：部署版本 `20260929-225529-0e64f410cdcb` 增加 Chrome / 油猴安装方式切换、Greasy Fork 入口与油猴数据说明。153 项测试及真实 Chrome 点击、键盘、窄屏检查通过。新版 ZIP 为 48,812 字节、25 个文件，随附 MIT `LICENSE`，公网哈希与本地一致，容器为 `healthy`。
+- 2026-09-29：部署版本 `20260929-230248-7041bfc20da8` 将油猴脚本调整为第一项并默认选中，README 安装顺序同步更新。153 项测试通过，公网选项顺序、默认值及 `/healthz` 已复核。
+- 2026-09-29：部署版本 `20260929-230740-a2eb76b405dc` 为油猴和 Chrome 选项加入内嵌 SVG 图标，并调整窄屏间距。153 项测试、真实 Chrome 桌面／窄屏显示及点击图标切换验证通过。

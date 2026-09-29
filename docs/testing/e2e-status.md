@@ -1,6 +1,6 @@
-# V1 验收状态
+# 0.1.2 验收状态与历史排查
 
-更新时间：2026-09-29（Asia/Shanghai）。验收状态：通过。0.1.2 已完成真实 Chrome 主流程验收，完整记录见 `CHROME_E2E_REPORT.md`；下方历史排查保留供追溯。
+更新时间：2026-09-29（Asia/Shanghai）。验收状态：通过。0.1.2 已完成真实 Chrome 主流程验收，完整记录见 [Chrome E2E 记录](chrome-e2e.md)；下方历史排查保留供追溯。
 
 ## 0.1.2 本轮新增范围
 
@@ -8,7 +8,7 @@
 - [x] 主动定位进广告时自动跳末尾，覆盖重复跳入与暂停状态。
 - [x] 侧边推荐 SPA 校验改用 Chrome 当前标签页 URL，并对切换瞬间做有限只读重试。
 - [x] 新媒体先就绪、路由稍后被轮询观察到的顺序回归。
-- [x] 真实 Chrome + 合成媒体回归：定位、重复定位、撤销、播放边界、开关、路由与进度条重建。详见 `BROWSER_PLAYER_REGRESSION.md`。
+- [x] 真实 Chrome + 合成媒体回归：定位、重复定位、撤销、播放边界、开关、路由与进度条重建。详见 [播放器回归记录](browser-player-regression.md)。
 - [x] 重载 0.1.2 后，真实 B站原生进度条、模型识别、缓存、播放动作及侧边切换逐项验收通过。
 
 ## 已完成
@@ -94,7 +94,7 @@ Chrome → 扩展程序 → 管理扩展程序 → 开发者模式 → 加载已
 
 用户截图确认普通视频页同样在扩展请求元数据时失败。随后对原生 fetch 的调用接收者做最小复现：三个客户端均将原生函数作为 `this.fetcher()` 调用，Chrome Window 和 WorkerGlobalScope 中都抛出 `Illegal invocation`。
 
-已统一绑定 `fetcher.bind(globalThis)`，升级到 `0.1.1`。相同真实浏览器 fixture 中三个客户端在两个上下文均返回本地 HTTP 200，原始未绑定调用作为负对照仍按预期抛错。详见 `BROWSER_FETCH_REGRESSION.md`。
+已统一绑定 `fetcher.bind(globalThis)`，升级到 `0.1.1`。相同真实浏览器 fixture 中三个客户端在两个上下文均返回本地 HTTP 200，原始未绑定调用作为负对照仍按预期抛错。详见 [原生 fetch 回归记录](browser-fetch-regression.md)。
 
 此前要求调整浏览器“放行”规则的推断已撤回。当前需要重载更新后的扩展，再验证 B站、DeepSeek 的实际请求和播放器动作。配置与 Key 沿用原有存储。
 
@@ -127,4 +127,4 @@ https://raw.githubusercontent.com/chromium/chromium/main/chrome/browser/resource
 - [x] 侧边合集切到另一个视频，旧广告清除，新标记正确加载；切回及相邻视频往返均通过。
 - [x] 真实内容页面板及原生进度条完成视觉核对。
 
-验收范围保留说明：设置页、弹窗的全量原生点击巡检及保存后密码框状态，受工具内部 URL 限制未自动化观察；安装与 Key/授权由用户实际完成。主流程以实际模型调用、IndexedDB 复用和播放行为验证配置成功，未将受限 UI 项冒充为观察结果。详见 `CHROME_E2E_REPORT.md`。
+验收范围保留说明：设置页、弹窗的全量原生点击巡检及保存后密码框状态，受工具内部 URL 限制未自动化观察；安装与 Key/授权由用户实际完成。主流程以实际模型调用、IndexedDB 复用和播放行为验证配置成功，未将受限 UI 项冒充为观察结果。详见 [Chrome E2E 记录](chrome-e2e.md)。

@@ -1,16 +1,18 @@
 # BiliSkip Chrome 扩展 V1
 
+本文命令和代码路径以仓库根目录为基准。更多文档见 [文档索引](README.md)。
+
 `0.1.4` 将完整操作面板移入 Chrome 工具栏图标弹窗。视频页保留原生进度条标记和播放器控制器，弹窗关闭后分析、上传和自动跳过继续执行。
 
 默认查询 `https://biliskipad.bakapiano.com` 的共享缓存并保留本地副本。新分析结果保存本地后默认自动上传，设置中的「分析完成后自动上传到共享缓存」可单独关闭；弹窗保留「读取线上缓存」和「上传到线上缓存」按钮。部署说明与验收记录见 `server/DEPLOYMENT.md`。
 
 纯 Manifest V3 扩展：B站字幕 → 用户自己的 DeepSeek Flash API → 校验广告句编号 → IndexedDB → 视频跳过。代码位于 `extension/`，可以直接加载。
 
-`0.1.2` 增加原生进度条广告色带、主动定位进广告后的自动跳过，并修复侧边推荐/分 P 的 SPA 页面身份校验与媒体就绪顺序。浏览器媒体回归见 `BROWSER_PLAYER_REGRESSION.md`。已加载旧版的用户需要在扩展管理页重新加载一次，再刷新视频页。
+`0.1.2` 增加原生进度条广告色带、主动定位进广告后的自动跳过，并修复侧边推荐/分 P 的 SPA 页面身份校验与媒体就绪顺序。浏览器媒体回归见 [播放器回归记录](testing/browser-player-regression.md)。已加载旧版的用户需要在扩展管理页重新加载一次，再刷新视频页。
 
-历史 `0.1.2` / `0.1.3` 的真实 Chrome 字幕、模型、缓存、原生进度条、跳过/撤销与视频切换已完成验收，详见 `CHROME_E2E_REPORT.md` 和 `server/E2E_REPORT.md`。`0.1.4` 的弹窗与自动上传已通过自动化回归；加载新版本后继续实际插件验收。
+历史 `0.1.2` / `0.1.3` 的真实 Chrome 字幕、模型、缓存、原生进度条、跳过/撤销与视频切换已完成验收，详见 [Chrome E2E 记录](testing/chrome-e2e.md) 和 [线上缓存验收](../server/E2E_REPORT.md)。`0.1.4` 的弹窗与自动上传已通过自动化回归；加载新版本后继续实际插件验收。
 
-`0.1.1` 的原生 `fetch` 调用接收者修复保留，真实 Chrome Window / Worker 的修复前后对照见 `BROWSER_FETCH_REGRESSION.md`。
+`0.1.1` 的原生 `fetch` 调用接收者修复保留，真实 Chrome Window / Worker 的修复前后对照见 [原生 fetch 回归记录](testing/browser-fetch-regression.md)。
 
 ## 安装与首次使用
 
@@ -20,7 +22,7 @@
 4. 打开或刷新 B站标准视频页，点击 Chrome 工具栏的 BiliSkip 图标，再在弹窗中点击「分析当前视频」。
 5. 展开广告标记，先「试听第 1 段边界」，核对后开启自动跳过。撤销会返回跳过前的时间，并保留该段继续播放。
 
-首次加载由用户在 Chrome 中完成；当前自动化工具对扩展管理页有明确访问限制。此交接完成后继续真实浏览器 E2E。安装状态与验收清单见 `E2E_STATUS.md`。
+首次加载由用户在 Chrome 中完成；当前自动化工具对扩展管理页有明确访问限制。此交接完成后继续真实浏览器 E2E。安装状态与验收清单见 [验收状态与历史排查](testing/e2e-status.md)。
 
 更新本地源码后，在扩展管理页重新加载该扩展，再刷新 B站页面。Key 和 IndexedDB 数据使用当前扩展 ID 对应的浏览器存储；移动扩展目录或卸载扩展会影响数据保留，请先导出需要的标记。
 
@@ -59,7 +61,7 @@
 - 扩展设置页提供缓存列表、标记导出和清除。统计中的缓存命中/模型请求数来自最近 200 条事件。
 - 模型请求的标题和字幕仅发往固定官方地址 `https://api.deepseek.com/chat/completions`；Key 位于 Authorization 请求头。
 - B站 API 请求沿用浏览器允许附带的站点会话；代码通过 fetch 发起请求，字幕 CDN 和模型请求使用 `credentials: omit`。
-- 共享服务只接收约定的标识、指纹、标记和有限证据句；字段白名单见 `SHARED_CACHE_API.md`。
+- 共享服务只接收约定的标识、指纹、标记和有限证据句；字段白名单见 [共享缓存协议](shared-cache-api.md)。
 - 本机扩展存储按个人电脑账号保护。建议使用专用额度 Key；聊天中曾贴出的凭据可在提供方控制台轮换。
 
 ## 真实接口实测（2026-09-29，北京时间）
@@ -80,11 +82,11 @@
 
 费用来自 `extension/lib/constants.js` 的 2026-09-29 价格快照与 API 实际 token 用量，账单以提供方为准。时延是单视频单轮结果。
 
-原始联调报告：`runs/extension-live-2026-09-28T16-32-08-916Z/report.json`（文件名使用 UTC）。真实 Chrome 的扩展安装、跨域请求与播放动作单独验收，详见 `E2E_STATUS.md`。
+原始联调报告：`runs/extension-live-2026-09-28T16-32-08-916Z/report.json`（文件名使用 UTC）。真实 Chrome 的扩展安装、跨域请求与播放动作单独验收，详见 [验收状态与历史排查](testing/e2e-status.md)。
 
 ## 开发和验证
 
-扩展运行代码为原生 JavaScript，测试使用 Node.js 22.13+ 的 22.x 或 Node.js 24+ 与 `fake-indexeddb`。开发依赖留在项目根目录，发布包只包含 `extension/`。协作与格式规范见 [AGENTS.md](AGENTS.md)。
+扩展运行代码为原生 JavaScript，测试使用 Node.js 22.13+ 的 22.x 或 Node.js 24+ 与 `fake-indexeddb`。开发依赖留在项目根目录，发布包只包含 `extension/`。协作与格式规范见 [AGENTS.md](../AGENTS.md)。
 
 ```powershell
 npm ci --ignore-scripts

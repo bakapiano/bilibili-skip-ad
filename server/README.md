@@ -68,7 +68,7 @@ node --env-file=server/.env server/index.js
 | `POST /v1/candidates`                            | 新记录 `201`；幂等重试 `200`；限流 `429`；冲突 `409`；已撤销 `410` |
 | `OPTIONS /v1/segments`、`OPTIONS /v1/candidates` | `204`，跨域预检                                                    |
 
-请求及响应字段与 [共享协议](../SHARED_CACHE_API.md) 一致。
+请求及响应字段与 [共享协议](../docs/shared-cache-api.md) 一致。
 单次提交上限为 **64 KiB**，正文读取等待上限 **10 秒**。
 查询和提交支持可选 `Authorization: Bearer <独立共享令牌>`。
 

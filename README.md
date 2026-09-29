@@ -5,9 +5,10 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 
 当前版本：`0.1.4`。
 
-另提供 [油猴版 `0.1.4.1`](userscript/README.md)，复用字幕、模型、缓存协议、播放器控制器和面板视图。构建产物为 `dist/biliskip.user.js`。
+另提供 [油猴版 `0.1.4.2`](userscript/README.md)，复用字幕、模型、缓存协议、播放器控制器和面板视图。构建产物为 `dist/biliskip.user.js`。
 
 - [官网与使用说明](https://biliskipad.bakapiano.com/)
+- [安装油猴版（Greasy Fork）](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87)
 - [下载 0.1.4 扩展 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip) · [SHA-256 校验值](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip.sha256)
 - [固定下载地址（随当前版本更新）](https://biliskipad.bakapiano.com/downloads/biliskip.zip)
 - [隐私与数据说明](https://biliskipad.bakapiano.com/privacy.html)
@@ -25,6 +26,20 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 
 ## 安装与使用
 
+官网默认展示「油猴脚本」，也可切换到「Chrome 扩展」查看对应下载入口与安装步骤。两个版本请选择一个运行。
+
+### 油猴版
+
+1. 在浏览器安装 Tampermonkey 5.4+，按其提示完成脚本运行配置。
+2. 打开 [BiliSkip 的 Greasy Fork 页面](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87)，点击「安装此脚本」，再在油猴确认页完成安装。
+3. 刷新 B站视频页，从油猴菜单打开「BiliSkip · 打开面板」。需要新识别时，配置个人 DeepSeek Key，并在设置里确认字幕发送授权。
+
+源码安装：运行 `npm run build:userscript`，将 `dist/biliskip.user.js` 的完整内容粘贴到油猴新建脚本并保存。
+操作面板按需打开，视频进度条持续显示广告标记。
+两个版本各自保存本地数据，共用线上缓存；请选一个版本控制播放器。安装与代码共享说明见 [userscript/README.md](userscript/README.md)。
+
+### Chrome 扩展
+
 1. 下载上面的 ZIP 并解压到固定目录；也可以克隆本仓库。
 2. 在 Chrome 打开 `chrome://extensions`，开启开发者模式。
 3. 点击「加载已解压的扩展程序」：ZIP 用户选择包含 `manifest.json` 的解压目录，源码用户选择仓库中的 `extension/`。
@@ -34,12 +49,6 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 运行环境为 Chrome 120+。通过已解压目录加载扩展时，运行代码可直接使用；Node.js 用于开发、测试、打包和自部署后端。
 
 更新时保留原扩展目录，在扩展管理页重新加载，再刷新 B站视频页。关闭弹窗后，已开始的分析、上传和自动跳过继续运行。
-
-### 油猴版
-
-运行 `npm run build:userscript` 后，在 Tampermonkey 5.4+ 添加新脚本，将 `dist/biliskip.user.js` 的完整内容替换默认模板并保存。
-刷新 B站视频页，从油猴菜单打开 BiliSkip 面板与设置，配置个人 Key。操作面板按需打开，视频进度条持续显示广告标记。
-两个版本各自保存本地数据，共用线上缓存；请选一个版本控制播放器。安装与代码共享说明见 [userscript/README.md](userscript/README.md)。
 
 ## 默认设置
 
@@ -71,6 +80,8 @@ extension/           Chrome 扩展运行代码、页面和样式
 userscript/          油猴入口、GM 网络／存储适配与按需面板
 tests/               扩展、共享服务、官网构建与工具链回归测试
 scripts/             项目检查和打包工具
+docs/                使用说明、共享协议与商店发布说明
+  testing/           扩展回归、E2E 与历史排查记录
 server/              Node HTTP + SQLite 共享缓存后端
   site/              静态官网、隐私说明和公开截图
 store/               商店文案、权限披露与审核材料
@@ -131,7 +142,7 @@ npm run server
 这套风控用于控制提交频率，标记准确性依赖识别结果与后续反馈。
 
 官网位于 `server/site/`，使用静态 HTML/CSS，由 Nginx 托管；缓存 API 继续转发到 Node。
-公开站点包含介绍页、隐私说明、真实视频截图，以及当前扩展 ZIP 和校验值。
+公开站点包含介绍页、隐私说明、真实视频截图，以及当前扩展 ZIP、校验值和 Greasy Fork 入口。安装区通过原生单选控件和 CSS 切换对应步骤。
 
 ```powershell
 # 核验、打包扩展，并构建、部署官网和共享服务
@@ -147,22 +158,20 @@ npm run build:site -- dist/<扩展上传包>.zip
 
 ## 验证状态
 
-截至 2026-09-29，`npm run verify` 通过 **149 项测试（含子用例）**，覆盖字幕回退、缓存、自动上传、弹窗消息、播放器行为、服务端限流、官网构建与油猴单文件模拟集成流程。
-真实 Chrome、线上接口与模拟测试的验收范围分别记录在以下文档中。
+截至 2026-09-29，`npm run verify` 覆盖字幕回退、缓存、自动上传、弹窗消息、播放器行为、服务端限流、官网构建、油猴单文件模拟集成、许可证与文档链接。
+真实 Chrome、线上接口与模拟测试的验收范围统一收录在 [文档索引](docs/README.md)。
 
 ## 文档
 
-- [扩展安装、架构和开发说明](EXTENSION.md)
+- [文档索引与回归 / E2E 记录](docs/README.md)
+- [扩展安装、架构和开发说明](docs/extension.md)
 - [油猴安装与代码共享说明](userscript/README.md)
-- [油猴自动化与实机验收状态](userscript/VALIDATION.md)
-- [一分钟介绍视频稿](store/intro-video-script.md)
-- [0.1.4 工具栏弹窗与自动上传回归](POPUP_REGRESSION.md)
-- [真实 Chrome E2E 验收记录](CHROME_E2E_REPORT.md)
-- [验收状态与历史排查](E2E_STATUS.md)
-- [共享缓存 API 协议](SHARED_CACHE_API.md)
+- [共享缓存 API 协议](docs/shared-cache-api.md)
 - [后端与官网部署说明](server/DEPLOYMENT.md)
-- [线上缓存验收](server/E2E_REPORT.md)
-- [官网与下载验收](server/SITE_E2E_REPORT.md)
-- [Chrome 商店打包与材料](CHROME_WEB_STORE.md)
-- [原生 fetch 回归记录](BROWSER_FETCH_REGRESSION.md)
-- [播放器与时间轴回归记录](BROWSER_PLAYER_REGRESSION.md)
+- [Chrome 商店打包与材料](docs/chrome-web-store.md)
+- [一分钟介绍视频稿](store/intro-video-script.md)
+
+## 许可证
+
+本项目源码采用 [MIT License](LICENSE)。油猴发布文件包含 `@license MIT` 和完整许可文本，Chrome 扩展包随附 `LICENSE`。
+第三方项目、视频、截图与音频素材按各自的许可证或权利授权使用。

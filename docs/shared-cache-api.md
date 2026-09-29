@@ -1,6 +1,8 @@
 # 自部署共享缓存协议 V1
 
-浏览器扩展 `0.1.4` 默认查询 `https://biliskipad.bakapiano.com`，新分析结果保存本地后默认自动上传，可在设置中关闭；工具栏弹窗保留手动上传入口。最小服务端位于 `server/`，使用 Node HTTP + SQLite。启动与部署见 [后端说明](server/README.md) 和 [线上部署记录](server/DEPLOYMENT.md)。
+本文代码路径以仓库根目录为基准。更多文档见 [文档索引](README.md)。
+
+浏览器扩展 `0.1.4` 默认查询 `https://biliskipad.bakapiano.com`，新分析结果保存本地后默认自动上传，可在设置中关闭；工具栏弹窗保留手动上传入口。最小服务端位于 `server/`，使用 Node HTTP + SQLite。启动与部署见 [后端说明](../server/README.md) 和 [线上部署记录](../server/DEPLOYMENT.md)。
 
 ## 启用条件
 

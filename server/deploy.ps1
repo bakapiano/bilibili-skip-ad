@@ -50,6 +50,7 @@ try {
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $bundlePath = Join-Path $tempRoot "biliskipad-$stamp.tar.gz"
     $payloadFiles = @(
+        'LICENSE',
         'package.json',
         'server/app.js', 'server/config.js', 'server/healthcheck.js',
         'server/index.js', 'server/store.js', 'server/validation.js',

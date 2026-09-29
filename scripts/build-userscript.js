@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -8,18 +8,19 @@ import { BUILD_VERSION } from "../extension/lib/constants.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 
 export async function bundleUserscript() {
+  const license = (await readFile(path.join(root, "LICENSE"), "utf8")).trim();
   const header = [
     "// ==UserScript==",
     "// @name         BiliSkip · AI 广告跳过",
     "// @namespace    https://github.com/bakapiano/bilibili-skip-ad",
-    `// @version      ${BUILD_VERSION}.1`,
+    `// @version      ${BUILD_VERSION}.2`,
     "// @description  读取 B站字幕和共享缓存，标记并跳过植入广告。使用个人 DeepSeek Key。",
     "// @author       bakapiano",
+    "// @license      MIT",
     "// @homepageURL  https://biliskipad.bakapiano.com/",
     "// @supportURL   https://github.com/bakapiano/bilibili-skip-ad/issues",
     "// @match        https://www.bilibili.com/video/*",
     "// @run-at       document-idle",
-    "// @sandbox      DOM",
     "// @noframes",
     ...[
       "GM.info",
@@ -50,7 +51,7 @@ export async function bundleUserscript() {
     charset: "utf8",
     legalComments: "inline",
     loader: { ".html": "text", ".css": "text" },
-    banner: { js: header },
+    banner: { js: `${header}\n\n/*\n${license}\n*/` },
     metafile: true,
     logLevel: "silent",
   });

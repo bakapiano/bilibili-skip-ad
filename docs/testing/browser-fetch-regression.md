@@ -44,4 +44,4 @@ Failed to execute 'fetch' on 'WorkerGlobalScope': Illegal invocation
 node .tmp/browser-fixture-server.js
 ```
 
-用 Chrome 打开命令输出的本地 URL，查看 8 项测试结果。浏览器实际广告识别、缓存和播放验收仍由 `E2E_STATUS.md` 单独记录；本回归仅证明原生请求绑定行为。
+用 Chrome 打开命令输出的本地 URL，查看 8 项测试结果。浏览器实际广告识别、缓存和播放验收仍由 [验收状态与历史排查](e2e-status.md) 单独记录；本回归仅证明原生请求绑定行为。

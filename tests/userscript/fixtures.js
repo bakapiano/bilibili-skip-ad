@@ -34,7 +34,7 @@ export function gmFixture({
   let receipt;
   let nextId = 1;
   const gm = {
-    info: { version: "5.4.0", scriptHandler: "Tampermonkey", sandboxMode: "dom" },
+    info: { version: "5.4.0", scriptHandler: "Tampermonkey", sandboxMode: "raw" },
     getValue: async (key, fallback) =>
       structuredClone(values.has(key) ? values.get(key) : fallback),
     setValue: async (key, value) => {

@@ -2,7 +2,7 @@
 
 日期：2026-09-29，北京时间。后端地址：`https://biliskipad.bakapiano.com`。
 
-本报告记录 `0.1.3` 线上链路。后续 `0.1.4` 的工具栏弹窗与自动上传变更见 [POPUP_REGRESSION.md](../POPUP_REGRESSION.md)。
+本报告记录 `0.1.3` 线上链路。后续 `0.1.4` 的工具栏弹窗与自动上传变更见 [弹窗与自动上传回归](../docs/testing/popup-regression.md)。
 
 ## 已完成
 

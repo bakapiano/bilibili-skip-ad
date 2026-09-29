@@ -4,9 +4,87 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { JSDOM } from "jsdom";
 import { buildSite, SITE_FILES } from "../scripts/build-site.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+const greasyForkUrl =
+  "https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87";
+
+test("native install choices display the corresponding instructions without site JavaScript", async (t) => {
+  const html = await readFile(path.join(root, "server/site/index.html"), "utf8");
+  const css = await readFile(path.join(root, "server/site/site.css"), "utf8");
+  const dom = new JSDOM(html);
+  t.after(() => dom.window.close());
+  const document = dom.window.document;
+  const style = document.createElement("style");
+  style.textContent = css;
+  document.head.append(style);
+  const chrome = document.getElementById("install-chrome");
+  const userscript = document.getElementById("install-userscript");
+  const chromePanel = document.getElementById(chrome.getAttribute("aria-controls"));
+  const userscriptPanel = document.getElementById(userscript.getAttribute("aria-controls"));
+  assert.equal(chrome.name, userscript.name);
+  assert.equal(chrome.type, "radio");
+  assert.equal(userscript.type, "radio");
+  assert.equal(chrome.labels.length, 1);
+  assert.equal(userscript.labels.length, 1);
+  for (const radio of [userscript, chrome]) {
+    const icons = radio.labels[0].querySelectorAll("svg.install-option-icon");
+    assert.equal(icons.length, 1);
+    assert.equal(icons[0].getAttribute("aria-hidden"), "true");
+    assert.equal(icons[0].getAttribute("focusable"), "false");
+    assert.equal(icons[0].getAttribute("viewBox"), "0 0 32 32");
+    assert.equal(icons[0].querySelectorAll("script,image,use,foreignObject").length, 0);
+    assert.ok(radio.labels[0].querySelector(".install-option-copy strong").textContent);
+  }
+  assert.equal(document.querySelector('input[name="install-method"]'), userscript);
+  assert.equal(userscript.defaultChecked, true);
+  assert.equal(chrome.defaultChecked, false);
+  assert.equal(chrome.closest("fieldset").querySelector("legend").textContent, "选择安装方式");
+  const expectSelection = (isChrome) => {
+    // jsdom caches computed styles after native :checked changes. Reattach the
+    // same stylesheet to evaluate each state; live Chrome checks the transition.
+    style.remove();
+    document.head.append(style);
+    assert.equal(chrome.checked, isChrome);
+    assert.equal(userscript.checked, !isChrome);
+    assert.equal(dom.window.getComputedStyle(chromePanel).display, isChrome ? "block" : "none");
+    assert.equal(dom.window.getComputedStyle(userscriptPanel).display, isChrome ? "none" : "block");
+  };
+  expectSelection(false);
+  assert.match(userscriptPanel.textContent, /安装此脚本/);
+  assert.match(userscriptPanel.textContent, /BiliSkip · 打开面板/);
+  assert.equal(userscriptPanel.querySelector("a.download").href, greasyForkUrl);
+  assert.equal(userscriptPanel.querySelector("a.download").target, "_blank");
+  chrome.labels[0].click();
+  expectSelection(true);
+  assert.match(chromePanel.textContent, /chrome:\/\/extensions/);
+  assert.equal(
+    chromePanel.querySelector("a.download").getAttribute("href"),
+    "/downloads/biliskip.zip",
+  );
+  userscript.labels[0].click();
+  expectSelection(false);
+  assert.equal(document.querySelectorAll("script").length, 0);
+});
+
+test("README and website share the published Greasy Fork installation entry", async () => {
+  for (const file of ["README.md", "userscript/README.md", "server/site/index.html"]) {
+    const text = await readFile(path.join(root, file), "utf8");
+    assert.ok(text.includes(greasyForkUrl), file);
+    assert.equal(text.includes(`${greasyForkUrl}/post-install`), false, file);
+  }
+  const readme = await readFile(path.join(root, "README.md"), "utf8");
+  assert.ok(readme.indexOf("### 油猴版") < readme.indexOf("### Chrome 扩展"));
+  const privacy = (await readFile(path.join(root, "server/site/privacy.html"), "utf8")).replace(
+    /\s+/g,
+    " ",
+  );
+  assert.match(privacy, /油猴版/);
+  assert.match(privacy, /GM 专属存储/);
+  assert.match(privacy, /当前页面内存/);
+});
 test("landing page build resolves versions and ships only explicit public assets", async (t) => {
   const tmp = path.join(root, ".tmp");
   await mkdir(tmp, { recursive: true });

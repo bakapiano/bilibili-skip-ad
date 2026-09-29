@@ -11,7 +11,7 @@
     <meta property="og:title" content="BiliSkip — B站植入广告跳过插件" />
     <meta
       property="og:description"
-      content="Chrome 扩展，支持广告标记、自动跳过、试听、撤销和共享缓存。"
+      content="选择 Chrome 扩展或油猴脚本安装，通过字幕识别广告，提供标记、自动跳过、试听、撤销和共享缓存。"
     />
     <meta
       property="og:image"
@@ -42,51 +42,156 @@
         <p class="lead">从视频字幕中识别赞助口播等广告片段，在进度条上标记，并按设置自动跳过。</p>
         <p>识别使用你自己的 DeepSeek API Key。已有结果会优先从本地或共享缓存读取。</p>
         <div class="download-row">
-          <a class="download" href="/downloads/biliskip.zip" download
-            >下载插件 v{{VERSION}}（ZIP）</a
-          ><a href="#install">安装说明</a
+          <a class="download" href="#install">选择安装方式</a
           ><a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
             >源代码</a
           >
         </div>
-        <p class="download-address">
-          固定下载地址：<a href="/downloads/biliskip.zip" download
-            >https://biliskipad.bakapiano.com/downloads/biliskip.zip</a
-          >
-        </p>
-        <p class="release-note">
-          扩展运行包 · 解压后加载文件夹 · Chrome 120+ ·
-          <a href="/downloads/biliskip-{{VERSION}}.zip.sha256">SHA-256</a>
-        </p>
+        <p class="release-note">Chrome 扩展与油猴脚本共用识别和跳过逻辑，按使用习惯选择即可。</p>
       </section>
 
       <section id="install" class="section install">
-        <h2>下载后怎么安装</h2>
-        <ol class="steps">
-          <li>
-            <a href="/downloads/biliskip.zip" download>下载插件 ZIP</a>，解压到固定文件夹，例如
-            <code>BiliSkip</code>。
-          </li>
-          <li>在 Chrome 地址栏输入 <code>chrome://extensions</code>，开启右上角「开发者模式」。</li>
-          <li>
-            点击「加载已解压的扩展程序」，选择刚才解压出的、包含
-            <code>manifest.json</code> 的文件夹。
-          </li>
-          <li>
-            打开 B站视频，点击工具栏的 BiliSkip 图标。需要新识别时，在设置中填写个人 DeepSeek API
-            Key 并确认字幕发送授权。
-          </li>
-        </ol>
+        <h2>安装 BiliSkip</h2>
+        <fieldset class="install-switch">
+          <legend class="visually-hidden">选择安装方式</legend>
+          <input
+            class="install-choice"
+            type="radio"
+            name="install-method"
+            id="install-userscript"
+            value="userscript"
+            aria-controls="install-userscript-panel"
+            checked
+          />
+          <label class="install-option" for="install-userscript">
+            <svg
+              class="install-option-icon"
+              viewBox="0 0 32 32"
+              width="32"
+              height="32"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect x="2" y="3" width="28" height="26" rx="6" fill="#30343b" />
+              <circle cx="10.5" cy="17" r="4" fill="#fff" />
+              <circle cx="21.5" cy="17" r="4" fill="#fff" />
+            </svg>
+            <span class="install-option-copy">
+              <strong>油猴脚本</strong
+              ><span class="install-option-detail">通过 Tampermonkey 安装和管理</span>
+            </span>
+          </label>
+          <input
+            class="install-choice"
+            type="radio"
+            name="install-method"
+            id="install-chrome"
+            value="chrome"
+            aria-controls="install-chrome-panel"
+          />
+          <label class="install-option" for="install-chrome">
+            <svg
+              class="install-option-icon"
+              viewBox="0 0 32 32"
+              width="32"
+              height="32"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M16 2a14 14 0 0 1 12.13 7H16a7 7 0 0 0-6.06 10.5L3.87 9A14 14 0 0 1 16 2Z"
+                fill="#ea4335"
+              />
+              <path d="M3.87 9A14 14 0 0 0 16 30l6.06-10.5a7 7 0 0 1-12.12 0Z" fill="#34a853" />
+              <path d="M28.13 9A14 14 0 0 1 16 30l6.06-10.5A7 7 0 0 0 16 9Z" fill="#fbbc05" />
+              <circle cx="16" cy="16" r="7" fill="#fff" />
+              <circle cx="16" cy="16" r="5.5" fill="#4285f4" />
+            </svg>
+            <span class="install-option-copy">
+              <strong>Chrome 扩展</strong
+              ><span class="install-option-detail">下载 ZIP，通过开发者模式加载</span>
+            </span>
+          </label>
+          <div class="install-panels">
+            <section
+              class="install-panel"
+              id="install-chrome-panel"
+              aria-labelledby="install-chrome-title"
+            >
+              <h3 id="install-chrome-title">安装 Chrome 扩展</h3>
+              <p class="note">Chrome 120+ · 当前版本 v{{VERSION}}</p>
+              <div class="download-row">
+                <a class="download" href="/downloads/biliskip.zip" download
+                  >下载 Chrome 扩展（ZIP）</a
+                >
+                <a href="/downloads/biliskip-{{VERSION}}.zip.sha256">SHA-256</a>
+              </div>
+              <ol class="steps">
+                <li>下载 ZIP，解压到固定文件夹，例如 <code>BiliSkip</code>。</li>
+                <li>
+                  在 Chrome 地址栏输入 <code>chrome://extensions</code>，开启右上角「开发者模式」。
+                </li>
+                <li>
+                  点击「加载已解压的扩展程序」，选择包含 <code>manifest.json</code> 的解压文件夹。
+                </li>
+                <li>
+                  打开 B站视频，点击工具栏的 BiliSkip 图标。需要新识别时，在设置中填写个人 DeepSeek
+                  API Key 并确认字幕发送授权。
+                </li>
+              </ol>
+              <p class="note">
+                本页提供 ZIP
+                离线加载包，导入时选择解压后的文件夹。更新时覆盖原目录中的扩展文件，在扩展管理页重新加载，再刷新视频页。
+              </p>
+              <p class="note download-address">
+                固定下载地址：<a href="/downloads/biliskip.zip" download
+                  >https://biliskipad.bakapiano.com/downloads/biliskip.zip</a
+                >
+              </p>
+            </section>
+            <section
+              class="install-panel"
+              id="install-userscript-panel"
+              aria-labelledby="install-userscript-title"
+            >
+              <h3 id="install-userscript-title">安装油猴脚本</h3>
+              <p class="note">Chrome 120+ · Tampermonkey 5.4+ · 通过 Greasy Fork 发布</p>
+              <div class="download-row">
+                <a
+                  class="download"
+                  href="https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >前往 Greasy Fork 安装</a
+                >
+                <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener noreferrer"
+                  >获取 Tampermonkey</a
+                >
+              </div>
+              <ol class="steps">
+                <li>在浏览器中安装 Tampermonkey，并按它的提示完成脚本运行配置。</li>
+                <li>
+                  打开上面的 Greasy Fork 页面，点击「安装此脚本」，再在油猴确认页点击「安装」。
+                </li>
+                <li>刷新 B站视频页，点击工具栏的油猴图标，选择「BiliSkip · 打开面板」。</li>
+                <li>
+                  需要新识别时，通过「BiliSkip · 配置 DeepSeek Key」填入个人 Key，再在「BiliSkip ·
+                  设置」确认字幕发送授权并保存。
+                </li>
+              </ol>
+              <p class="note">后续通过油猴检查脚本更新，安装新版后刷新 B站视频页。</p>
+            </section>
+          </div>
+        </fieldset>
         <p class="note">
-          本页提供 ZIP 离线加载包，导入时选择解压后的文件夹。Chrome 商店发布版使用「添加至
-          Chrome」安装。
+          两个版本各自保存
+          Key、设置和本地缓存，共用线上缓存。请选择其中一个版本运行；已有共享结果可直接读取。
         </p>
-        <p class="note">更新时，将新版本解压到原扩展目录，在扩展管理页重新加载，再刷新视频页。</p>
       </section>
 
       <section class="screenshots" aria-labelledby="screenshot-title">
         <h2 id="screenshot-title">实际效果</h2>
-        <p>金色区间表示广告。分析、试听、撤销和设置在工具栏的插件弹窗中。</p>
+        <p>金色区间表示广告。Chrome 版通过工具栏弹窗操作，油猴版通过油猴菜单打开面板。</p>
         <figure>
           <a href="/assets/auto-skip.png?v={{ASSET_VERSION}}" aria-label="查看自动跳过效果原图"
             ><img
@@ -139,7 +244,7 @@
           <div>
             <dt>视频切换</dt>
             <dd>
-              跟随侧边推荐和分 P 切换更新标记。关闭插件弹窗后，已开始的分析和自动跳过会继续执行。
+              跟随侧边推荐和分 P 切换更新标记。关闭操作面板后，已开始的分析和自动跳过会继续执行。
             </dd>
           </div>
         </dl>

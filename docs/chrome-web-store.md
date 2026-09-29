@@ -1,5 +1,7 @@
 # Chrome Web Store 上传包
 
+本文命令和代码路径以仓库根目录为基准。更多文档见 [文档索引](README.md)。
+
 ## 生成与上传
 
 ```powershell
@@ -10,6 +12,7 @@ npm run pack:store
 命令先运行完整验证，然后生成
 `dist/biliskip-0.1.4-chrome-web-store-<时间戳>.zip` 和对应 `.sha256` 文件。
 ZIP 只包含 `extension/` 下的运行代码和图标，`manifest.json` 位于 ZIP 根目录。
+包内随附与项目根目录一致的 MIT `LICENSE` 文件。
 在 Chrome Web Store 开发者后台创建条目时上传此 ZIP。
 
 当前包版本为 `0.1.4`。后续向同一条目上传更新包时，先同步提高

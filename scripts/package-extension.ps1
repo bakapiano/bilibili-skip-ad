@@ -25,7 +25,7 @@ try {
             if ($entry.FullName.Contains('\') -or $entry.FullName.StartsWith('/') -or $entry.FullName.Split('/').Contains('..')) {
                 throw "Unsafe archive path: $($entry.FullName)"
             }
-            if ($entry.Name -ne '' -and $entry.FullName -notmatch '\.(js|html|css|json|png)$') {
+            if ($entry.Name -ne '' -and $entry.FullName -ne 'LICENSE' -and $entry.FullName -notmatch '\.(js|html|css|json|png)$') {
                 throw "Unexpected archive file: $($entry.FullName)"
             }
         }

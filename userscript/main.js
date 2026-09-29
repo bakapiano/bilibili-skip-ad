@@ -13,11 +13,6 @@ async function start() {
     "ENVIRONMENT",
     "请使用 Tampermonkey 5.4+ 运行本脚本。",
   );
-  assert(
-    GM.info.sandboxMode === "dom",
-    "SANDBOX",
-    "请在油猴设置中启用 DOM 隔离环境，再刷新视频页。",
-  );
   let controller;
   const runtime = new UserscriptRuntime({
     gm: GM,

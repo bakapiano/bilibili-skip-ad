@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { JSDOM } from "jsdom";
 import { bundleUserscript } from "../../scripts/build-userscript.js";
 import { DEFAULT_SETTINGS } from "../../extension/lib/constants.js";
@@ -10,6 +11,7 @@ import { gmFixture, lockFixture } from "./fixtures.js";
 import { flush, ref } from "../extension/fixtures.js";
 
 const bundle = await bundleUserscript();
+const license = (await readFile(new URL("../../LICENSE", import.meta.url), "utf8")).trim();
 
 async function settle(predicate) {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -151,7 +153,13 @@ function browserFixture(options = {}) {
 
 test("single-file artifact declares scoped grants and bundles shared business/player/view sources", () => {
   assert.ok(bundle.code.startsWith("// ==UserScript==\n"));
-  assert.match(bundle.code, /@sandbox\s+DOM/);
+  assert.match(bundle.code, /@version\s+0\.1\.4\.2/);
+  assert.match(bundle.code, /^\/\/ @license\s+MIT$/m);
+  assert.ok(bundle.code.includes(`/*\n${license}\n*/`));
+  assert.doesNotMatch(bundle.code, /@sandbox|sandboxMode|DOM 隔离/);
+  for (const grant of ["GM.getValue", "GM.setValue", "GM.xmlHttpRequest"]) {
+    assert.ok(bundle.code.includes(`// @grant        ${grant}`));
+  }
   assert.match(bundle.code, /@noframes/);
   assert.doesNotMatch(bundle.code, /@connect\s+\*|@require|@grant\s+unsafeWindow/);
   assert.doesNotMatch(bundle.code, /\bsk-[a-zA-Z0-9]{24,}\b|\bchrome\.(runtime|tabs|storage)/);
@@ -265,12 +273,23 @@ test("bundle menus configure a GM-only key and cleanup listeners/controllers on 
   }
 });
 
-test("bundle requires DOM isolation and yields playback ownership to an active Chrome extension", async (t) => {
-  const isolated = browserFixture({ info: { sandboxMode: "raw" } });
-  t.after(() => isolated.close());
-  await isolated.menu("BiliSkip · 查看启动提示");
-  assert.match(isolated.alerts[0], /DOM 隔离/);
-  assert.equal(isolated.requests.length, 0);
+test("bundle starts in raw/default environments and yields playback ownership to an active Chrome extension", async (t) => {
+  for (const sandboxMode of ["raw", undefined]) {
+    const active = browserFixture({ info: { sandboxMode } });
+    t.after(() => active.close());
+    await settle(
+      () => active.document.getElementById("biliskip-userscript-root")?.dataset.state === "ready",
+    );
+    await active.menu("BiliSkip · 打开面板");
+    await settle(() => active.panel()?.getElementById("source").textContent === "DeepSeek Flash");
+    assert.equal(active.menus.has("BiliSkip · 查看启动提示"), false);
+    assert.equal(active.alerts.length, 0);
+    assert.equal(active.values.get("biliskip:v1:deepseekKey"), "test-only-placeholder");
+    assert.equal(
+      active.requests.filter(({ details }) => details.url.includes("/chat/completions")).length,
+      1,
+    );
+  }
   const existing = browserFixture({ extension: true });
   t.after(() => existing.close());
   await existing.menu("BiliSkip · 打开面板");
