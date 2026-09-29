@@ -14,12 +14,12 @@ Node 的内置 fetch 与原先的箭头函数测试替身没有暴露接收者�
 
 本地 fixture 仅监听 `127.0.0.1`，只提供明确允许的测试文件、项目模块和 `/probe` JSON。测试直接加载 `extension/lib/bilibili.js` 和 `extension/lib/providers.js`，在真实 Chrome 的 Window 和专用 WorkerGlobalScope 中执行各客户端的 `fetcher`。测试请求均发往本地 `/probe`。
 
-| 用例 | 修复前 Window / Worker | 修复后 Window / Worker |
-| --- | --- | --- |
+| 用例                     | 修复前 Window / Worker    | 修复后 Window / Worker                    |
+| ------------------------ | ------------------------- | ----------------------------------------- |
 | 原始未绑定调用（负对照） | 均抛出 Illegal invocation | 均抛出 Illegal invocation，符合负对照预期 |
-| BilibiliClient | 均抛出 Illegal invocation | 均 HTTP 200 |
-| DeepSeekClient | 均抛出 Illegal invocation | 均 HTTP 200 |
-| SharedClient | 均抛出 Illegal invocation | 均 HTTP 200 |
+| BilibiliClient           | 均抛出 Illegal invocation | 均 HTTP 200                               |
+| DeepSeekClient           | 均抛出 Illegal invocation | 均 HTTP 200                               |
+| SharedClient             | 均抛出 Illegal invocation | 均 HTTP 200                               |
 
 修复前 UI 报告时间：`2026-09-29T02:23:14.392Z`，状态 `failed`。
 
@@ -38,10 +38,10 @@ Failed to execute 'fetch' on 'WorkerGlobalScope': Illegal invocation
 
 扩展版本更新为 `0.1.1`，视频面板 DOM 的 `data-build` 来自后台公开设置，可用于确认更新已加载。用户存储的 Key、设置与数据库沿用原扩展 ID。
 
-复现命令：
+本次人工验证使用的脚本已归入本机 `.tmp/`（Git 忽略）。保留该临时脚本的工作区可执行：
 
 ```powershell
-npm run fixture:browser
+node .tmp/browser-fixture-server.js
 ```
 
 用 Chrome 打开命令输出的本地 URL，查看 8 项测试结果。浏览器实际广告识别、缓存和播放验收仍由 `E2E_STATUS.md` 单独记录；本回归仅证明原生请求绑定行为。

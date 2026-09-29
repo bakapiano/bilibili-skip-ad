@@ -1,0 +1,133 @@
+:root {
+  color-scheme: dark;
+  font:
+    13px/1.55 system-ui,
+    sans-serif;
+  color: #ecf2ff;
+  background: #111b2b;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  width: 380px;
+  margin: 0;
+}
+main {
+  padding: 14px;
+  max-height: 600px;
+  overflow: auto;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #34465e;
+  padding-bottom: 10px;
+}
+h1 {
+  font-size: 18px;
+  color: #68dfc0;
+  margin: 0;
+}
+#source {
+  margin-left: auto;
+  font-size: 11px;
+  color: #a7b8d1;
+}
+#video-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #b4c2d7;
+  font-size: 12px;
+  margin: 10px 0 6px;
+}
+#status {
+  white-space: pre-wrap;
+  min-height: 20px;
+  margin: 6px 0 12px;
+}
+.error {
+  color: #ffb6b6;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+button {
+  font: inherit;
+  color: #e9f4ff;
+  background: #25354d;
+  border: 1px solid #52647f;
+  border-radius: 7px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+button:hover {
+  background: #354b6b;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.primary {
+  background: #0f725f;
+  border-color: #39b79d;
+}
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #7de8d0;
+  outline-offset: 2px;
+}
+#meter {
+  height: 6px;
+  border-radius: 4px;
+  background: #30415a;
+  position: relative;
+  margin: 14px 0;
+  overflow: hidden;
+}
+.mark {
+  position: absolute;
+  height: 100%;
+  background: #f6bd60;
+}
+summary {
+  color: #c8d7ed;
+  cursor: pointer;
+}
+#segments {
+  max-height: 210px;
+  overflow: auto;
+}
+.segment {
+  border-top: 1px solid #34465e;
+  margin-top: 8px;
+  padding: 10px 0 2px;
+}
+.segment strong {
+  font-size: 12px;
+}
+.reason,
+.hint,
+footer {
+  color: #aebed4;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.reason {
+  margin: 6px 0 8px;
+}
+.hint {
+  white-space: pre-line;
+  margin: 10px 0;
+}
+footer {
+  border-top: 1px solid #34465e;
+  padding-top: 10px;
+}
+[hidden] {
+  display: none !important;
+}

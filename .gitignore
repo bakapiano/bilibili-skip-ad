@@ -10,3 +10,6 @@ runs/
 !.env.example
 node_modules/
 dist/
+.tmp/
+coverage/
+.eslintcache

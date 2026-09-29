@@ -1,0 +1,39 @@
+name: biliskipad
+
+services:
+  api:
+    image: node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+    network_mode: host
+    user: "1000:1000"
+    working_dir: /app
+    command: ["node", "server/index.js"]
+    env_file: /srv/biliskipad/service.env
+    environment:
+      BILISKIP_HOST: 127.0.0.1
+      BILISKIP_PORT: "8787"
+      BILISKIP_DB_PATH: /data/shared-cache.sqlite
+      BILISKIP_TRUSTED_PROXIES: "127.0.0.1,::1"
+    volumes:
+      - /srv/biliskipad/current:/app:ro
+      - /srv/biliskipad/data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "node", "server/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "3"

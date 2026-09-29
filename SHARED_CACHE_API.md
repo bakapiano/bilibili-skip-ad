@@ -1,6 +1,6 @@
-# 自部署共享缓存协议 V1（预留）
+# 自部署共享缓存协议 V1
 
-浏览器扩展已实现默认关闭的查询与候选上传适配器。服务端由后续独立任务部署在用户控制的公开 HTTPS 域名。这里定义接口边界和验收约束。
+浏览器扩展 `0.1.4` 默认查询 `https://biliskipad.bakapiano.com`，新分析结果保存本地后默认自动上传，可在设置中关闭；工具栏弹窗保留手动上传入口。最小服务端位于 `server/`，使用 Node HTTP + SQLite。启动与部署见 [后端说明](server/README.md) 和 [线上部署记录](server/DEPLOYMENT.md)。
 
 ## 启用条件
 
@@ -46,7 +46,7 @@ Authorization: Bearer <独立共享服务令牌，可选>
 
 ## 上传候选
 
-用户在视频面板主动点击「上传此标记为候选」后调用：
+新分析结果按设置自动上传，或用户在工具栏弹窗点击「上传到线上缓存」时调用：
 
 ```http
 POST /v1/candidates
@@ -57,20 +57,20 @@ Authorization: Bearer <独立共享服务令牌，可选>
 
 请求字段：
 
-| 字段 | 内容 |
-| --- | --- |
-| `schema_version` | `1` |
-| `video` | 白名单 `bvid/page/cid/duration/title/part` |
-| `transcript_sha256` | 当前规范化上下文指纹 |
-| `model`, `prompt_version` | 检测版本 |
-| `labels` | 与查询返回的 labels 相同字段集合 |
-| `segments` | `start_id/end_id/start/end/brand/confidence/reason/evidence_ids/evidence` |
-| `evidence` | 每段最多 10 句，每句仅 `id/from/to/content`，文本最多 500 字符 |
+| 字段                      | 内容                                                                      |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `schema_version`          | `1`                                                                       |
+| `video`                   | 白名单 `bvid/page/cid/duration/title/part`                                |
+| `transcript_sha256`       | 当前规范化上下文指纹                                                      |
+| `model`, `prompt_version` | 检测版本                                                                  |
+| `labels`                  | 与查询返回的 labels 相同字段集合                                          |
+| `segments`                | `start_id/end_id/start/end/brand/confidence/reason/evidence_ids/evidence` |
+| `evidence`                | 每段最多 10 句，每句仅 `id/from/to/content`，文本最多 500 字符            |
 
 回执：
 
 ```json
-{"schema_version":1,"status":"pending","submission_id":"server-generated-id"}
+{ "schema_version": 1, "status": "pending", "submission_id": "server-generated-id" }
 ```
 
 `status` 可为 `pending` 或 `accepted`；两者均为候选提交回执，发布状态通过查询接口单独表达。相同 idempotency key 返回相同提交结果。扩展将失败候选留在 outbox，用户再次上传沿用同一 key；已成功提交的候选直接返回本机保存的回执。
@@ -83,15 +83,16 @@ Authorization: Bearer <独立共享服务令牌，可选>
 
 `video` 是 `bvid/page/cid/duration/title/part`；`cues` 是按原始顺序生成的 `{id,from,to,content}`，ID 从 1 开始、时间四舍五入至毫秒、文本去两端空白。具体规范实现位于 `extension/lib/core.js`。
 
-跨语言服务端需要对齐 JavaScript 数字序列化，例如 `1` 与 `1.0` 的差别会影响哈希。现有 Python PoC 使用自己的历史指纹；共享服务以本协议实现和测试向量为准。
+跨语言服务端需要对齐 JavaScript 数字序列化，例如 `1` 与 `1.0` 的差别会影响哈希。共享服务以本协议、扩展实现和测试向量为准。
 
-## 服务端后续实现要求
+## 当前最小服务端策略
 
-1. 上传入口视所有客户端字段为不可信输入。验证 JSON schema、体积、时间/编号范围、视频身份与摘要。
-2. 所有上传先进入候选队列。`published` 由服务端独立审查或复核流程产生。
-3. 请求令牌、IP、视频维度设置速率/配额限制与异常检测，保存审计事件和撤销入口。
-4. 合并多用户一致标记时考虑独立身份、历史质量和投毒风险；关键标记可重新获取字幕并用服务端模型复核。
-5. 客户端声明的模型名和置信分仅作为候选信息，发布前结合证据判断。
-6. 当前适配器将所配置 HTTPS 域名视为共享结果提供方，未来可增加版本化签名校验。服务端仍负责内容质量。
+1. `POST /v1/candidates` 按来源 IP 控制相邻放行请求至少间隔 1000ms，SQLite 原子记录计数。错误 JSON、认证失败和幂等重试都计入提交限流。
+2. 超限返回 `429` 与 `Retry-After`；每日统计次数用于观察，保存最近 7 个 UTC 日期。
+3. 请求上限 64KiB，校验字段白名单、canonical 请求体哈希、视频绑定、编号范围、时间区间和证据。
+4. 按本版简化目标，首条校验通过的提交直接进入共享缓存，返回 `accepted`；查询状态为 `published`。这里的发布表示缓存准入，内容准确性需要后续反馈和复核。
+5. 同一缓存身份的完全相同请求复用提交回执；不同内容返回 `409`，保留原记录。本机管理命令可撤销记录，查询随后返回 `404`，同键新提交返回 `410`。
+6. 代理 IP 来源须显式配置。服务默认使用 TCP 连接来源；只有可信代理可通过被覆盖的 `X-Real-IP` 提供客户端地址。
+7. 管理入口为服务器本机命令，包含 IP 计数查看、最近标记和记录撤销。
 
-以上为未来服务端契约与设计要求，当前仓库交付范围是浏览器端适配器和协议测试。
+未来可增加用户反馈、独立模型复核和签名校验。当前插件按所配置域名提供的共享结果工作，并用本次完整字幕重新验证句编号和时间边界。

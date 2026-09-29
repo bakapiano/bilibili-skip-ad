@@ -1,0 +1,20 @@
+# Include these locations inside the HTTPS server block for your real domain.
+# Keep the Node listener on 127.0.0.1:8787 and enable the loopback trusted proxies.
+location /v1/ {
+    client_max_body_size 64k;
+    client_body_timeout 10s;
+    proxy_pass http://127.0.0.1:8787;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For "";
+    proxy_set_header Connection "";
+    proxy_connect_timeout 3s;
+    proxy_read_timeout 15s;
+    access_log off;
+}
+
+location = /healthz {
+    proxy_pass http://127.0.0.1:8787;
+    access_log off;
+}

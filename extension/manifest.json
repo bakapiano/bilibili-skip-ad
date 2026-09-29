@@ -1,25 +1,42 @@
 {
   "manifest_version": 3,
   "name": "BiliSkip · AI 广告跳过",
-  "version": "0.1.2",
-  "description": "读取 B站字幕，直连个人 DeepSeek API，使用本地数据库保存广告标记并跳过。",
+  "version": "0.1.4",
+  "description": "读取 B站字幕和线上共享缓存，直连个人 DeepSeek API 识别广告，在进度条标记区间并按需跳过。",
   "minimum_chrome_version": "120",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": ["storage"],
   "host_permissions": [
     "https://www.bilibili.com/*",
     "https://api.bilibili.com/*",
     "https://*.hdslb.com/*",
-    "https://api.deepseek.com/*"
+    "https://api.deepseek.com/*",
+    "https://biliskipad.bakapiano.com/*"
   ],
   "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js", "type": "module" },
-  "content_scripts": [{
-    "matches": ["https://www.bilibili.com/video/*"],
-    "js": ["player-core.js", "timeline.js", "content.js"],
-    "run_at": "document_idle",
-    "all_frames": false
-  }],
-  "action": { "default_title": "BiliSkip", "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.bilibili.com/video/*"],
+      "js": ["player-core.js", "timeline.js", "content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_title": "BiliSkip",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
   "options_page": "options.html",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"

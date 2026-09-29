@@ -1,0 +1,13 @@
+node_modules/
+.tmp/
+.models/
+.runtime/
+.venv/
+__pycache__/
+data/
+runs/
+dist/
+coverage/
+package-lock.json
+.env
+.env.*
