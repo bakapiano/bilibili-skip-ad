@@ -9,6 +9,7 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 
 - [官网与使用说明](https://biliskipad.bakapiano.com/)
 - [安装油猴版（Greasy Fork）](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87)
+- [安装 Chrome 商店版](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk)
 - [下载 0.1.4 扩展 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip) · [SHA-256 校验值](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip.sha256)
 - [固定下载地址（随当前版本更新）](https://biliskipad.bakapiano.com/downloads/biliskip.zip)
 - [隐私与数据说明](https://biliskipad.bakapiano.com/privacy.html)
@@ -40,15 +41,23 @@ Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别�
 
 ### Chrome 扩展
 
+Chrome 商店版已上架：打开 [BiliSkip 的 Chrome 应用商店页面](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk)，点击「添加至 Chrome」并确认安装。
+
+1. 在 Chrome 工具栏的扩展菜单中固定 BiliSkip。
+2. 需要自行识别时，在扩展设置页配置个人 DeepSeek Key，并确认字幕发送授权；已有共享结果可先直接读取。
+3. 打开 B站视频，点击 Chrome 工具栏的 BiliSkip 图标。已有缓存会直接显示；需要新识别时点击「分析当前视频」，试听广告边界后按需开启自动跳过。
+
+商店安装版通过 Chrome 更新。油猴版、商店版和开发版各自保存个人设置与本地数据，请选择一个版本控制播放器；切换安装方式时重新配置设置，按需先导出广告标记。
+
+#### ZIP / 源码安装
+
 1. 下载上面的 ZIP 并解压到固定目录；也可以克隆本仓库。
 2. 在 Chrome 打开 `chrome://extensions`，开启开发者模式。
 3. 点击「加载已解压的扩展程序」：ZIP 用户选择包含 `manifest.json` 的解压目录，源码用户选择仓库中的 `extension/`。
-4. 需要自行识别时，在扩展设置页配置个人 DeepSeek Key，并确认字幕发送授权；已有共享结果可先直接读取。
-5. 打开 B站视频，点击 Chrome 工具栏的 BiliSkip 图标。已有缓存会直接显示；需要新识别时点击「分析当前视频」，试听广告边界后按需开启自动跳过。
 
 运行环境为 Chrome 120+。通过已解压目录加载扩展时，运行代码可直接使用；Node.js 用于开发、测试、打包和自部署后端。
 
-更新时保留原扩展目录，在扩展管理页重新加载，再刷新 B站视频页。关闭弹窗后，已开始的分析、上传和自动跳过继续运行。
+更新 ZIP / 源码版时保留原扩展目录，在扩展管理页重新加载，再刷新 B站视频页。关闭弹窗后，已开始的分析、上传和自动跳过继续运行。
 
 ## 默认设置
 
@@ -142,7 +151,7 @@ npm run server
 这套风控用于控制提交频率，标记准确性依赖识别结果与后续反馈。
 
 官网位于 `server/site/`，使用静态 HTML/CSS，由 Nginx 托管；缓存 API 继续转发到 Node。
-公开站点包含介绍页、隐私说明、真实视频截图，以及当前扩展 ZIP、校验值和 Greasy Fork 入口。安装区通过原生单选控件和 CSS 切换对应步骤。
+公开站点包含介绍页、隐私说明、真实视频截图，以及 Chrome 应用商店、Greasy Fork 和备用扩展 ZIP 入口。安装区通过原生单选控件和 CSS 切换对应步骤。
 
 ```powershell
 # 核验、打包扩展，并构建、部署官网和共享服务

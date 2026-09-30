@@ -16,13 +16,15 @@
 
 ## 安装与首次使用
 
-1. 在 Chrome 打开 `chrome://extensions`，开启开发者模式。
-2. 点击「加载已解压的扩展程序」，选择本仓库中的 `extension/` 目录。
+1. 打开 [Chrome 应用商店中的 BiliSkip](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk)，点击「添加至 Chrome」并确认安装。
+2. 在工具栏的扩展菜单中固定 BiliSkip。
 3. 扩展设置页填写个人 DeepSeek Key，勾选「将当前视频标题和字幕发送至 DeepSeek」并保存。
 4. 打开或刷新 B站标准视频页，点击 Chrome 工具栏的 BiliSkip 图标，再在弹窗中点击「分析当前视频」。
 5. 展开广告标记，先「试听第 1 段边界」，核对后开启自动跳过。撤销会返回跳过前的时间，并保留该段继续播放。
 
-首次加载由用户在 Chrome 中完成；当前自动化工具对扩展管理页有明确访问限制。此交接完成后继续真实浏览器 E2E。安装状态与验收清单见 [验收状态与历史排查](testing/e2e-status.md)。
+商店版通过 Chrome 更新。开发调试时，在 `chrome://extensions` 开启开发者模式，点击「加载已解压的扩展程序」选择仓库中的 `extension/`，或 ZIP 解压后的目录。选择一个版本控制播放器，切换安装方式时重新配置个人设置。
+
+首次安装由用户在 Chrome 中完成。安装状态与验收清单见 [验收状态与历史排查](testing/e2e-status.md)。
 
 更新本地源码后，在扩展管理页重新加载该扩展，再刷新 B站页面。Key 和 IndexedDB 数据使用当前扩展 ID 对应的浏览器存储；移动扩展目录或卸载扩展会影响数据保留，请先导出需要的标记。
 

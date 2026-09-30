@@ -10,6 +10,7 @@ import { buildSite, SITE_FILES } from "../scripts/build-site.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const greasyForkUrl =
   "https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87";
+const chromeStoreUrl = "https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk";
 
 test("native install choices display the corresponding instructions without site JavaScript", async (t) => {
   const html = await readFile(path.join(root, "server/site/index.html"), "utf8");
@@ -60,13 +61,27 @@ test("native install choices display the corresponding instructions without site
   chrome.labels[0].click();
   expectSelection(true);
   assert.match(chromePanel.textContent, /chrome:\/\/extensions/);
+  assert.equal(chromePanel.querySelector("a.download").getAttribute("href"), chromeStoreUrl);
+  assert.equal(chromePanel.querySelector("a.download").target, "_blank");
+  assert.match(chromePanel.querySelector("a.download").rel, /noopener/);
+  assert.match(chromePanel.querySelector(".steps li").textContent, /添加至 Chrome/);
+  const offline = chromePanel.querySelector("details.offline-install");
+  assert.equal(offline.open, false);
   assert.equal(
-    chromePanel.querySelector("a.download").getAttribute("href"),
+    offline.querySelector("a[download]").getAttribute("href"),
     "/downloads/biliskip.zip",
   );
   userscript.labels[0].click();
   expectSelection(false);
   assert.equal(document.querySelectorAll("script").length, 0);
+});
+
+test("public installation docs share the released Chrome store entry", async () => {
+  for (const file of ["README.md", "docs/extension.md", "server/site/index.html"]) {
+    const text = await readFile(path.join(root, file), "utf8");
+    assert.ok(text.includes(chromeStoreUrl), file);
+    assert.equal(text.includes("authuser="), false, file);
+  }
 });
 
 test("README and website share the published Greasy Fork installation entry", async () => {

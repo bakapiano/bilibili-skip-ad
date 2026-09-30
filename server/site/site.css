@@ -225,6 +225,12 @@ p {
 .install-panel .download-row {
   margin: 17px 0;
 }
+.offline-install {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
 .screenshots {
   margin-top: 35px;
 }
