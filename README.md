@@ -1,24 +1,60 @@
-# BiliSkip — B站植入广告跳过插件
+<p align="center">
+  <a href="https://biliskipad.bakapiano.com/">
+    <img src="extension/icons/icon-128.png" width="96" height="96" alt="BiliSkip 图标" />
+  </a>
+</p>
 
-Chrome Manifest V3 扩展，使用 B站字幕和个人 DeepSeek API Key 识别赞助口播等商业植入，
-在原生进度条标记广告区间，并按设置自动跳过。识别结果保存在本地 IndexedDB，也可以通过共享缓存复用。
+<h1 align="center">BiliSkip</h1>
 
-当前版本：`0.1.4`。
+<p align="center">用 DeepSeek 识别 B站视频中的植入广告，在原生进度条上标记并按需跳过。</p>
 
-另提供 [油猴版 `0.1.4.2`](userscript/README.md)，复用字幕、模型、缓存协议、播放器控制器和面板视图。构建产物为 `dist/biliskip.user.js`。
+<div align="center">
 
-- [官网与使用说明](https://biliskipad.bakapiano.com/)
-- [安装油猴版（Greasy Fork）](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87)
-- [安装 Chrome 商店版](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk)
-- [下载 0.1.4 扩展 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip) · [SHA-256 校验值](https://biliskipad.bakapiano.com/downloads/biliskip-0.1.4.zip.sha256)
-- [固定下载地址（随当前版本更新）](https://biliskipad.bakapiano.com/downloads/biliskip.zip)
-- [隐私与数据说明](https://biliskipad.bakapiano.com/privacy.html)
-- [问题反馈](https://github.com/bakapiano/bilibili-skip-ad/issues)
+[![MIT License](https://img.shields.io/badge/license-MIT-2563eb?style=flat-square)](LICENSE)
+[![Greasy Fork](https://img.shields.io/greasyfork/v/597956?label=Greasy%20Fork&color=3b82f6&style=flat-square)](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87)
+
+[![油猴累计安装量](https://img.shields.io/greasyfork/dt/597956?label=%E6%B2%B9%E7%8C%B4%E5%AE%89%E8%A3%85&color=3b82f6&style=flat-square)](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87)
+[![缓存视频](https://img.shields.io/endpoint?url=https%3A%2F%2Fbiliskipad.bakapiano.com%2Fv1%2Fbadges%2Fvideos&style=flat-square&cacheSeconds=300)](https://biliskipad.bakapiano.com/)
+[![广告片段](https://img.shields.io/endpoint?url=https%3A%2F%2Fbiliskipad.bakapiano.com%2Fv1%2Fbadges%2Fsegments&style=flat-square&cacheSeconds=300)](https://biliskipad.bakapiano.com/)
+[![节省时间](https://img.shields.io/endpoint?url=https%3A%2F%2Fbiliskipad.bakapiano.com%2Fv1%2Fbadges%2Fsaved-time&style=flat-square&cacheSeconds=300)](https://biliskipad.bakapiano.com/)
+
+[官网](https://biliskipad.bakapiano.com/) · [安装](#安装与使用) · [使用说明](docs/extension.md) · [更新日志](docs/releases/0.1.9.md) · [反馈问题](https://github.com/bakapiano/bilibili-skip-ad/issues)
+
+</div>
+
+直接复用线上共享标记，也可以填入自己的 DeepSeek API Key 识别新视频。
+已有结果保存在本机，金色区间显示在 B站原生进度条上；自动跳过、边界试听与撤销都可以按需使用。
+
+| 油猴脚本                                                                                                         | Chrome 扩展                                                                                  | ZIP / 源码                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Greasy Fork 安装](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87) | [Chrome 应用商店](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk) | [下载 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip.zip) · [校验值](https://biliskipad.bakapiano.com/downloads/biliskip.zip.sha256) |
+| Tampermonkey 5.4+，适用于 Chrome / Edge                                                                          | 工具栏弹窗与独立设置页                                                                       | 解压后加载，或直接加载仓库的 `extension/`                                                                                                      |
+
+当前源码：扩展 **0.1.9**，油猴 **0.1.9.1**。商店、Greasy Fork 和官网 ZIP 按各自发布流程更新；当前官网 ZIP 为 **0.1.6**。
+
+<details>
+<summary>统计口径</summary>
+
+- 油猴安装量来自 Greasy Fork 的公开累计安装次数，用于展示该分发渠道的使用规模。Chrome / Edge 的用户统计以对应商店为准。
+- 缓存视频与片段来自本站共享数据库。每个视频分 P 取最新有效结果，零广告结果计入缓存视频数。
+- 节省时间按这些广告片段的总时长汇总，每个分 P 计一次；这是缓存覆盖的广告时长。
+- 徽章由 Shields.io 渲染，本站提供只读汇总接口，更新有数分钟缓存。
+
+</details>
+
+## 实际效果
+
+![BiliSkip 在 B站原生进度条标记广告区间](server/site/assets/ad-markers.png)
+
+查看 [官网实机展示](https://biliskipad.bakapiano.com/#screenshot-title)，或打开 [示例视频](https://www.bilibili.com/video/BV1Lmd2BAEad/) 体验共享缓存与跳过。
 
 ## 功能
 
 - 从当前 B站视频读取带时间戳的字幕，按中文 → 英文 → 其他语言回退，通过 DeepSeek Flash 识别商业植入；面板显示实际字幕语言。
-- 原生进度条显示金色广告区间，开启自动跳过后，播放或主动定位到广告时跳至末尾。
+- 全部字幕轨道不可用时，可在浏览器本机转写音频，用于共享缓存匹配或授权后的DeepSeek分析。首次按需下载约239MB模型。
+- 设置页可提前下载、取消下载或校验语音模型；可选本站、HF-Mirror和Hugging Face，统一校验同一份模型哈希并复用浏览器缓存。
+- 原生进度条仅显示通过评分阈值和时长保护的金色广告区间；试听与撤销保留的片段隐藏标记。开启自动跳过后，播放或主动定位到广告时跳至末尾。
+- 独立的短视频豁免区块：可调分钟数，支持小数；命中后跳过字幕、ASR、广告分析、缓存标记应用和广告跳过。
 - 提供边界试听、手动跳过和撤销功能。
 - 操作面板位于 Chrome 工具栏图标弹窗，视频页保留原生进度条标记；关闭弹窗后继续处理分析与播放。
 - 支持侧边推荐视频及分 P 切换，按新视频身份更新标记。
@@ -61,19 +97,36 @@ Chrome 商店版已上架：打开 [BiliSkip 的 Chrome 应用商店页面](http
 
 ## 默认设置
 
-| 设置         | 首次使用默认值 | 作用                                              |
-| ------------ | -------------- | ------------------------------------------------- |
-| 自动分析     | 关闭           | 开启后，对前台视频中尚无缓存的内容自动发起识别    |
-| 自动跳过     | 关闭           | 开启后跳过符合阈值的广告，默认自评分阈值为 `0.90` |
-| 查询共享缓存 | 开启           | 本地未命中时查询内置线上服务                      |
-| 允许上传     | 开启           | 自动上传和手动上传的总开关                        |
-| 自动上传     | 开启           | 新分析结果保存本地后自动提交一次                  |
+| 设置         | 首次使用默认值  | 作用                                               |
+| ------------ | --------------- | -------------------------------------------------- |
+| 自动分析     | 关闭            | 开启后，对前台视频中尚无缓存的内容自动发起识别     |
+| 自动跳过     | 关闭            | 开启后跳过符合阈值的广告，默认自评分阈值为 `0.90`  |
+| 本地转写     | 关闭，2路CPU    | 开启后无字幕时按需转写，可选1/2/4/6/8路并发        |
+| 转写字幕上传 | 开启            | 新生成的本地转写字幕按独立开关上传，用于准确度评估 |
+| 短视频豁免   | 关闭，预设3分钟 | 开启后严格按视频时长小于设定分钟数豁免             |
+| 查询共享缓存 | 开启            | 本地未命中时查询内置线上服务                       |
+| 允许上传     | 开启            | 自动上传和手动上传的总开关                         |
+| 自动上传     | 开启            | 新分析结果保存本地后自动提交一次                   |
 
 关闭「分析完成后自动上传到共享缓存」后，仍可在弹窗手动上传。原有的上传总开关关闭设置会继续生效。
 
+### 可选的本地语音转写
+
+全部字幕轨道不可用时，可以开启 SenseVoiceSmall INT8 本地转写。首次按需下载约239MB模型，在本机CPU运行，默认2路并发；设置页可提前下载并选择本站、HF-Mirror或Hugging Face，下载后统一校验SHA-256。
+
+已开启本地转写时，空Key模式也可手动转写后匹配共享缓存。完整转写文本及时间戳的上传由独立开关控制，默认开启，音频在本机处理。详见 [ASR说明](docs/asr-trial.md)。
+
+油猴0.1.9.1在WASM/VAD资源失效时暂停当前页面的新转写，字幕识别、缓存、标记和跳过继续运行；设置中可重新检查资源。共享服务异常时复用本地结果，上传失败保留已生成的标记。详见 [降级验收](docs/testing/userscript-fallback-0.1.9.1.md)。
+
+### 当前识别版本
+
+两端共用 `deepseek-flash` 和仅广告JSON v2提示词：输入标题与编号字幕，输出连续广告段落，再由客户端绑定时间戳。提示词经过固定1000条社区样本对照测试，详见 [0.1.9更新说明](docs/releases/0.1.9.md) 与 [评测报告](prompt/experiments/expanded-1000-json-v2-2026-10-02.md)。
+
+`ad-cues-v6-json` 与旧提示词的缓存分别积累，已有Key、设置和记录保留。后端兼容v1–v6；设置页缓存列表提供10／20／50条分页。实验用Qwen模型继续保留在独立POC。
+
 ## 缓存和识别流程
 
-1. 打开或切换视频时，重新核对 BV、分 P、CID 和字幕；字幕按中文、英文、其他语言的顺序回退。
+1. 打开或切换视频时，核对 BV、分 P、CID 和时长，先检查短视频豁免，再按中文、英文、其他语言读取字幕；无字幕时按设置使用本地ASR字幕缓存或转写。
 2. 以视频标识、字幕指纹、模型和提示词版本查询本地缓存，未命中时再查询共享缓存。弹窗中的「读取线上缓存」可以主动刷新线上结果。
 3. 新分析使用个人 Key 直接请求 `deepseek-flash`。模型返回广告起止句编号，插件结合原始字幕时间轴校验并生成跳过区间。
 4. 有效结果先保存本地，再按当前设置自动上传。**0 段广告同样是有效缓存结果**。上传失败时保留本地标记，并提示手动重试。
@@ -86,9 +139,11 @@ Chrome 商店版已上架：打开 [BiliSkip 的 Chrome 应用商店页面](http
 ```text
 extension/           Chrome 扩展运行代码、页面和样式
   lib/               字幕、模型、缓存、校验及消息模块
+  asr/               本地转写引擎、Worker池与随包JS/WASM资源
 userscript/          油猴入口、GM 网络／存储适配与按需面板
 tests/               扩展、共享服务、官网构建与工具链回归测试
 scripts/             项目检查和打包工具
+prompt/              Prompt评测代码、界面、测试及本机数据
 docs/                使用说明、共享协议与商店发布说明
   testing/           扩展回归、E2E 与历史排查记录
 server/              Node HTTP + SQLite 共享缓存后端
@@ -102,6 +157,11 @@ eslint.config.js     ESLint 环境和质量规则
 ```
 
 ## 开发
+
+本地Prompt评测环境：`npm run prompt`（也可用`npm run lab`），打开 `http://127.0.0.1:43820/`。
+代码、测试与使用说明集中在`prompt/`；支持平均IoU、正文误跳率、广告遗漏率及新旧批次逐视频回归对比。
+有效字幕数据和运行记录保存在Git忽略的`prompt/data/`与`prompt/runs/`。详见 [使用说明](prompt/README.md) 与
+[首轮现有prompt审计](docs/testing/prompt-lab-audit-2026-10-02.md)。
 
 使用 Node.js 22.13+ 的 22.x 或 Node.js 24+。
 
@@ -131,6 +191,7 @@ npm run build:userscript
 ## 数据与隐私
 
 个人 Key 保存在本机扩展存储中，模型请求将当前视频标题和字幕发送给 DeepSeek。
+ASR音频在本机CPU处理，转写字幕按相同授权发送给DeepSeek。语音模型默认由 `biliskipad.bakapiano.com` 提供，可在设置中选择HF-Mirror或Hugging Face；各源固定相同快照，下载后核对SHA-256并保存至浏览器CacheStorage。所选下载站点及其CDN接收必要网络连接信息，Chrome按需申请第三方源域名权限。Chrome的JS/WASM随包分发；油猴业务JS保留在脚本内，WASM及VAD数据由带SRI的`@resource`在安装/更新时预加载并存入油猴资源存储。
 线上查询默认开启，发送视频标识、字幕指纹和模型版本；新分析结果默认自动上传视频信息、标记与有限证据，设置中可单独关闭自动上传。关闭「允许上传」总开关会同时关闭自动与手动上传。共享令牌按域名绑定，候选上传采用字段白名单。
 
 每段上传最多包含 10 条证据句，每条最多 500 字符。DeepSeek Key、B站会话分别用于各自的认证链路。
@@ -144,7 +205,7 @@ npm run build:userscript
 npm run server
 ```
 
-默认监听 `127.0.0.1:8787`，数据保存在 `data/shared-cache.sqlite`。提供 `GET /healthz`、`GET /v1/segments` 和 `POST /v1/candidates`。
+默认监听`127.0.0.1:8787`，数据保存在`data/shared-cache.sqlite`。提供健康检查、共享标记查询／提交，以及`POST /v1/transcripts`转写字幕收集接口。
 同一来源 IP 两次提交放行至少间隔 1000ms；IPv6 按 `/64` 网段统计。
 
 当前共享规则是结构校验合格的首条提交直接发布，同键相同内容幂等返回，差异内容返回 `409`；维护者可以撤销记录。
@@ -167,7 +228,7 @@ npm run build:site -- dist/<扩展上传包>.zip
 
 ## 验证状态
 
-截至 2026-09-29，`npm run verify` 覆盖字幕回退、缓存、自动上传、弹窗消息、播放器行为、服务端限流、官网构建、油猴单文件模拟集成、许可证与文档链接。
+`npm run verify` 覆盖字幕回退、提示词与输出校验、本地ASR、资源降级、缓存与上传、播放器行为、服务端限流、统计徽章、官网构建、油猴单文件模拟集成、许可证与文档链接。
 真实 Chrome、线上接口与模拟测试的验收范围统一收录在 [文档索引](docs/README.md)。
 
 ## 文档
@@ -184,3 +245,11 @@ npm run build:site -- dist/<扩展上传包>.zip
 
 本项目源码采用 [MIT License](LICENSE)。油猴发布文件包含 `@license MIT` 和完整许可文本，Chrome 扩展包随附 `LICENSE`。
 第三方项目、视频、截图与音频素材按各自的许可证或权利授权使用。
+
+## 调研参考
+
+- [小电视空降助手](https://github.com/hanydd/BilibiliSponsorBlock)：B站播放器交互、社区标记与项目展示。
+- [bilijump-ai](https://github.com/qingmeng1/bilijump-ai)、[biliadskip](https://github.com/chemhunter/biliadskip)：广告识别与跳过方案。
+- [bilibili-ai-subtitle](https://github.com/ccBilly-aipm/bilibili-ai-subtitle)：字幕获取与处理思路。
+
+感谢这些项目的作者。欢迎提交 Issue、复现样本和 Pull Request；提交前请阅读 [项目协作规范](AGENTS.md)。

@@ -37,6 +37,36 @@ main {
 #settings-panel p {
   font-size: 12px;
 }
+.settings-section {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #34465e;
+  border-radius: 8px;
+}
+.settings-section h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+#asr-resource-controls {
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+#asr-resource-controls legend {
+  font-weight: 600;
+}
+#asr-resource-controls:disabled {
+  opacity: 0.6;
+}
+#asr-resource-status[data-state="unavailable"] {
+  color: #ffd088;
+}
+#model-download-progress {
+  width: 100%;
+  height: 10px;
+  accent-color: #8fcaff;
+}
 label {
   display: block;
   margin: 10px 0;

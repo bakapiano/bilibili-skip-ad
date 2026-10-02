@@ -18,6 +18,7 @@ BiliSkip 是原生 JavaScript Chrome Manifest V3 扩展，使用 DeepSeek 分析
 - `tests/extension/`：可重复执行的扩展单元测试、回归测试与固定测试数据。
 - `tests/`：工具链等正式回归测试。
 - `scripts/`：需要提交的项目检查、构建和打包工具。
+- `prompt/`：本机Prompt评测服务、数据整理、采集、指标、界面和`tests/`回归测试。有效字幕数据置`prompt/data/`，运行记录置`prompt/runs/`，二者Git忽略；与线上服务及扩展打包独立。
 - `docs/`：跨模块使用说明、架构与协议文档，入口为 `docs/README.md`。
 - `docs/testing/`：扩展回归、E2E 与历史排查记录，按验收版本和日期保留原始结论。
 - `store/`：商店介绍、隐私说明草稿及宣传图的可重建文案；截图和交付素材保存在 `dist/`。

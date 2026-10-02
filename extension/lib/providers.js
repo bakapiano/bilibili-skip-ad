@@ -1,4 +1,5 @@
-import { MODEL, PROMPT_VERSION, LABEL_SCHEMA, INSTRUCTIONS, MAX_BYTES } from "./constants.js";
+import { MODEL, PROMPT_VERSION, INSTRUCTIONS, MAX_BYTES, BUILD_VERSION } from "./constants.js";
+import { ASR_VERSION } from "./asr-config.js";
 import {
   AppError,
   assert,
@@ -6,31 +7,31 @@ import {
   hash,
   sharedOrigin,
   usageCost,
-  parseOutput,
   validateLabels,
 } from "./core.js";
 import { boundedBody } from "./bilibili.js";
+import { compactPromptData } from "./prompt.js";
+import { parseModelOutput, parseAdBlocksOutput } from "./model-output.js";
 
-export function deepseekRequest(context) {
-  const payload = Object.fromEntries(
-    ["video_key", "transcript_sha256", "video", "cues"].map((key) => [key, context[key]]),
-  );
+export function deepseekRequest(context, { protocol = "json" } = {}) {
   return {
     model: MODEL,
     messages: [
-      { role: "system", content: `${INSTRUCTIONS}\nJSON Schema：${JSON.stringify(LABEL_SCHEMA)}` },
-      { role: "user", content: JSON.stringify(payload) },
+      { role: "system", content: INSTRUCTIONS },
+      { role: "user", content: compactPromptData(context) },
     ],
     thinking: { type: "disabled" },
-    response_format: { type: "json_object" },
     temperature: 0,
-    max_tokens: 2048,
+    max_tokens: protocol === "pipe" ? 2048 : 8192,
+    ...(protocol === "pipe" ? {} : { response_format: { type: "json_object" } }),
     stream: false,
   };
 }
 export class DeepSeekClient {
-  constructor(fetcher = fetch) {
+  constructor(fetcher = fetch, { protocol = "json" } = {}) {
     this.fetcher = fetcher.bind(globalThis);
+    assert(["json", "pipe"].includes(protocol), "OUTPUT", "模型输出协议异常。");
+    this.protocol = protocol;
   }
   async analyze(context, key) {
     assert(
@@ -38,6 +39,7 @@ export class DeepSeekClient {
       "KEY",
       "请先在设置中配置 DeepSeek API Key。",
     );
+    const requestContext = structuredClone(context);
     const start = performance.now();
     let usage;
     try {
@@ -47,7 +49,7 @@ export class DeepSeekClient {
         credentials: "omit",
         signal: AbortSignal.timeout(25000),
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify(deepseekRequest(context)),
+        body: JSON.stringify(deepseekRequest(requestContext, { protocol: this.protocol })),
       });
       const messages = {
         401: "DeepSeek Key 验证失败，请更新设置。",
@@ -73,10 +75,9 @@ export class DeepSeekClient {
         "OUTPUT",
         "本轮输出未完整结束，用量已记录，请手动重试。",
       );
-      const labels = parseOutput(choice.message?.content);
-      const result = validateLabels(context, labels);
+      const parse = this.protocol === "pipe" ? parseModelOutput : parseAdBlocksOutput;
+      const result = parse(requestContext, choice.message?.content);
       return {
-        labels,
         ...result,
         usage,
         elapsedMs: Math.round(performance.now() - start),
@@ -105,6 +106,26 @@ export class SharedClient {
   constructor(fetcher = fetch, hasPermission = async () => false) {
     this.fetcher = fetcher.bind(globalThis);
     this.hasPermission = hasPermission;
+    this.submissionTail = Promise.resolve();
+    this.nextSubmissionAt = 0;
+  }
+  submit(task) {
+    const pending = this.submissionTail
+      .catch(() => {})
+      .then(async () => {
+        const delay = this.nextSubmissionAt - Date.now();
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        try {
+          return await task();
+        } finally {
+          // Space from the response, so variable network latency cannot compress server arrivals.
+          this.nextSubmissionAt = Date.now() + 1000;
+        }
+      });
+    this.submissionTail = pending.catch(() => {});
+    return pending;
   }
   async request(settings, path, options = {}) {
     const origin = sharedOrigin(settings.sharedBaseUrl);
@@ -213,14 +234,16 @@ export class SharedClient {
   }
   async upload(candidate, settings) {
     assert(settings.sharedUpload, "SHARED_DISABLED", "共享上传当前处于关闭状态。");
-    const result = await this.request(settings, "/v1/candidates", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Idempotency-Key": candidate.id,
-      },
-      body: JSON.stringify(candidate.payload),
-    });
+    const result = await this.submit(() =>
+      this.request(settings, "/v1/candidates", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": candidate.id,
+        },
+        body: JSON.stringify(candidate.payload),
+      }),
+    );
     assert(
       result?.schema_version === 1 &&
         ["pending", "accepted"].includes(result.status) &&
@@ -229,5 +252,67 @@ export class SharedClient {
       "共享服务的上传回执格式异常。",
     );
     return result;
+  }
+  async transcript(context) {
+    assert(
+      context.source === `local-asr:${ASR_VERSION}`,
+      "ASR_UPLOAD",
+      "仅上传当前本地ASR生成的字幕。",
+    );
+    const { bvid, page, cid, duration, title, part } = context.video;
+    const payload = {
+      schema_version: 1,
+      video: { bvid, page, cid, duration, title, part },
+      asr_version: ASR_VERSION,
+      client_version: BUILD_VERSION,
+      transcript_sha256: context.transcript_sha256,
+      cues: context.cues.map(({ id, from, to, content }) => ({ id, from, to, content })),
+    };
+    assert(
+      (await hash({ video: payload.video, cues: payload.cues })) === payload.transcript_sha256,
+      "ASR_UPLOAD",
+      "转写字幕指纹异常。",
+    );
+    assert(
+      new TextEncoder().encode(JSON.stringify(payload)).length <= 512 * 1024,
+      "ASR_UPLOAD",
+      "转写字幕超过提交上限。",
+    );
+    return {
+      id: await hash(payload),
+      payload,
+      kind: "transcript",
+      status: "pending",
+      createdAt: Date.now(),
+    };
+  }
+  async uploadTranscript(candidate, settings, stillEnabled = async () => true) {
+    assert(settings.asrUpload, "SHARED_DISABLED", "转写字幕上传开关已关闭。");
+    const body = JSON.stringify(candidate.payload);
+    for (const secret of [settings.apiKey, settings.sharedToken]) {
+      assert(
+        !secret || !body.includes(secret),
+        "ASR_UPLOAD",
+        "字幕包含当前凭据特征，已保留在本地。",
+      );
+    }
+    return this.submit(async () => {
+      if (!(await stillEnabled())) {
+        return null;
+      }
+      const result = await this.request(settings, "/v1/transcripts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": candidate.id },
+        body,
+      });
+      assert(
+        result?.schema_version === 1 &&
+          result.status === "accepted" &&
+          typeof result.submission_id === "string",
+        "SHARED_SCHEMA",
+        "转写字幕上传回执异常。",
+      );
+      return result;
+    });
   }
 }

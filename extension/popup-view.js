@@ -85,6 +85,7 @@ globalThis.BiliSkipPopup = function mountPopup({ root, background, command, open
       return;
     }
     const settings = current?.settings || active?.settings || {};
+    const cacheOnly = !settings.hasKey || !settings.consent;
     const record = current?.record;
     const busy = sending || current?.busy;
     const available = Boolean(current?.video);
@@ -94,7 +95,9 @@ globalThis.BiliSkipPopup = function mountPopup({ root, background, command, open
       ? P.sourceLabel(record.source)
       : current?.analyzing
         ? "分析中"
-        : "本地优先";
+        : cacheOnly
+          ? "缓存模式"
+          : "本地优先";
     $("status").textContent =
       problem ||
       (!current?.busy && current?.warning) ||
@@ -104,13 +107,20 @@ globalThis.BiliSkipPopup = function mountPopup({ root, background, command, open
     for (const name of actionNames) {
       $(name).disabled = !available || busy;
     }
-    $("analyze").textContent =
-      !settings.hasKey || !settings.consent
-        ? "设置 Key 与授权"
-        : record
-          ? "重新分析（再次计费）"
-          : "分析当前视频";
+    $("analyze").textContent = cacheOnly
+      ? settings.sharedRead
+        ? current?.asrRequired
+          ? "转写并查询共享缓存"
+          : "查询共享缓存"
+        : "读取本地缓存"
+      : record
+        ? "重新分析（再次计费）"
+        : "分析当前视频";
     $("online").disabled = !available || busy || !settings.sharedRead;
+    if (current?.exempt) {
+      $("analyze").disabled = true;
+      $("online").disabled = true;
+    }
     $("toggle").textContent = settings.autoSkip ? "自动跳过：开" : "开启自动跳过";
     $("skip").disabled = busy || !current?.player?.canSkip;
     $("undo").disabled = busy || !current?.player?.canUndo;
@@ -120,6 +130,9 @@ globalThis.BiliSkipPopup = function mountPopup({ root, background, command, open
       button.disabled = busy || !current?.player?.ready;
     }
     const lines = [];
+    if (cacheOnly) {
+      lines.push("缓存模式：直接复用已有标记。DeepSeek Key 用于自行识别新的广告区间。");
+    }
     if (current?.subtitleSource) {
       lines.push(P.subtitleLabel(current.subtitleSource));
     }

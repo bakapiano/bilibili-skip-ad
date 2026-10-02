@@ -25,7 +25,7 @@ test("MIT declarations match and distributable archives retain the license", asy
   }
   assert.match(
     await readFile(path.join(root, "scripts/package-extension.ps1"), "utf8"),
-    /FullName -ne 'LICENSE'/,
+    /Name -notin \$legalNotices/,
   );
   assert.match(await readFile(path.join(root, "server/deploy.ps1"), "utf8"), /'LICENSE',/);
   assert.match(
@@ -59,6 +59,9 @@ test("ESLint covers all maintained JavaScript sources and module extensions", as
     "scripts/example.mjs",
   ];
   for (const file of files) {
+    if (file.split(path.sep).join("/").startsWith("extension/asr/vendor/")) {
+      continue;
+    }
     assert.equal(await eslint.isPathIgnored(file), false, file);
     const config = await eslint.calculateConfigForFile(file);
     assert.equal(config.rules["no-undef"][0], 2, file);
@@ -83,6 +86,7 @@ test("ESLint isolates Node, browser pages and extension worker globals", async (
     ["scripts/example.js", "process.exitCode = 0;", "document"],
     ["extension/options.js", "document.title = chrome.runtime.id;", "process"],
     ["extension/background.js", "chrome.runtime.getManifest();", "document"],
+    ["server/site/stats.js", "document.title = location.hostname;", "process"],
   ];
   for (const [filePath, source, wrongGlobal] of cases) {
     const [valid] = await eslint.lintText(source, { filePath });

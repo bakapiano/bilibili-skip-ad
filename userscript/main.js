@@ -5,6 +5,8 @@ import "../extension/popup-view.js";
 import { assert, safeError } from "../extension/lib/core.js";
 import { UserscriptRuntime, SETTINGS_KEY } from "./runtime.js";
 import { createPanel } from "./panel.js";
+import { userscriptAsr } from "./asr.js";
+import { createGMFetch } from "./network.js";
 
 async function start() {
   const [major, minor] = String(GM.info.version).split(".").map(Number);
@@ -14,8 +16,12 @@ async function start() {
     "请使用 Tampermonkey 5.4+ 运行本脚本。",
   );
   let controller;
+  const fetcher = createGMFetch(GM);
+  const asr = userscriptAsr(GM, fetcher);
   const runtime = new UserscriptRuntime({
     gm: GM,
+    fetcher,
+    asr,
     location,
     locks: navigator.locks,
     openOptions: () => panel.open(true),
@@ -66,6 +72,7 @@ async function start() {
       controller.destroy();
       controller = null;
       runtime.fetcher.dispose();
+      asr.close();
     }
   }, 400);
   const settingsListener = await GM.addValueChangeListener(
@@ -88,6 +95,7 @@ async function start() {
     "pagehide",
     () => {
       panel.close();
+      asr.close();
       controller?.destroy();
       clearInterval(conflictTimer);
       runtime.fetcher.dispose();

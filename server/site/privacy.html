@@ -7,8 +7,8 @@
       name="description"
       content="了解 BiliSkip 的本地存储、字幕分析、共享缓存与自动上传开关，以及数据保存和反馈方式。"
     />
-    <meta name="theme-color" content="#ffffff" />
-    <link rel="icon" type="image/png" href="/assets/icon.png" />
+    <meta name="theme-color" content="#f2f7ff" />
+    <link rel="icon" type="image/svg+xml" href="/assets/site-icon.svg" />
     <link rel="stylesheet" href="/site.css?v={{ASSET_VERSION}}" />
     <link rel="canonical" href="https://biliskipad.bakapiano.com/privacy.html" />
     <title>隐私与数据说明 · BiliSkip</title>
@@ -16,18 +16,40 @@
   <body>
     <header class="site-header wrap">
       <a class="brand" href="/"
-        ><img src="/assets/icon.png" width="36" height="36" alt="" /><span>BiliSkip</span></a
+        ><img src="/assets/site-icon.svg" width="34" height="34" alt="" /><span>BiliSkip</span></a
       >
       <nav aria-label="主导航">
-        <a href="/">返回首页</a
-        ><a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
-          >GitHub ↗</a
+        <a href="/#install"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5" /></svg
+          >安装</a
+        >
+        <a href="/#features"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="2" />
+            <rect x="14" y="3" width="7" height="7" rx="2" />
+            <rect x="3" y="14" width="7" height="7" rx="2" />
+            <rect x="14" y="14" width="7" height="7" rx="2" /></svg
+          >功能</a
+        >
+        <a href="/privacy.html" aria-current="page"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
+            <path d="m8 12 3 3 5-6" /></svg
+          >隐私</a
+        >
+        <a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m8 8-4 4 4 4m8-8 4 4-4 4M14 4l-4 16" /></svg
+          >GitHub</a
         >
       </nav>
     </header>
     <main class="privacy-page wrap">
       <h1>隐私与数据说明</h1>
-      <p class="updated">适用：Chrome 扩展 {{VERSION}} 与油猴脚本 · 更新日期：2026 年 9 月 29 日</p>
+      <p class="updated">
+        适用：Chrome 扩展与油猴脚本 · 本站 ZIP {{VERSION}} · 更新日期：2026 年 10 月 2 日
+      </p>
       <p>
         BiliSkip 是由 bakapiano 维护的开源 Chrome 扩展和油猴脚本，用于依据
         B站字幕识别商业植入、标记时间轴和辅助跳过。本页说明当前实现中的数据流向、保存方式与用户控制。
@@ -47,7 +69,7 @@
         <li>
           <strong>油猴版：</strong>个人 Key、设置、广告标记、上传回执与近期事件保存在 Tampermonkey
           的 GM
-          专属存储；完整字幕上下文和运行任务保存在当前页面内存。脚本使用油猴默认运行环境，页面中的
+          专属存储；本地ASR字幕也保存在GM存储，普通字幕上下文和运行任务保存在当前页面内存。脚本使用油猴默认运行环境，页面中的
           JavaScript 对象可能受网站脚本影响。
         </li>
         <li>
@@ -57,24 +79,43 @@
         </li>
       </ul>
       <p>
+        本地语音转写启用后，SenseVoiceSmall
+        INT8模型按需下载并保存到CacheStorage；Chrome版使用扩展存储空间，油猴版使用B站页面的同源存储空间。使用前核对固定模型SHA-256。音轨在浏览器内解码和转写，任务结束后释放运行Worker；转写字幕作为后续广告分析输入。
+      </p>
+      <p>
         两个版本各自保存本地数据，可通过各自的设置清理缓存和凭据；油猴管理器可删除对应脚本数据。本机存储的保护依赖浏览器、脚本管理器、电脑账号与设备安全措施。
       </p>
       <h2>2. 数据会发送给哪些服务？</h2>
       <ul>
         <li>
-          <strong>B站：</strong>扩展请求当前视频信息和可用字幕，字幕 CDN 提供字幕文件。B站 API
-          请求按浏览器规则沿用已有登录态。
+          <strong>B站：</strong
+          >扩展请求当前视频信息和可用字幕，字幕CDN提供字幕文件；本地转写时还会请求当前播放权限对应的音轨。B站
+          API 请求按浏览器规则沿用已有登录态。
+        </li>
+        <li>
+          <strong>语音模型下载：</strong>设置页可提前下载，或在首次本地转写时从本站
+          biliskipad.bakapiano.com下载固定SenseVoiceSmall
+          INT8快照，约239MB。也可选择HF-Mirror镜像或Hugging
+          Face原站；所选站点和其CDN接收必要网络连接信息。模型下载使用匿名请求，各源文件均校验相同SHA-256；本站文件由Nginx直接提供，独立于共享数据提交限流。Chrome的语音JS与WASM随安装包分发；油猴保留业务JS，WASM和VAD数据通过带SRI的本站资源声明在安装/更新时由管理器预加载并缓存。音频在本机处理；转写文字按DeepSeek字幕授权发送。
         </li>
         <li>
           <strong>DeepSeek：</strong>配置个人 Key
-          并确认授权后，新分析会将当前视频信息、标题、字幕、字幕指纹和识别指令发送到官方 API。Key
-          仅用于 DeepSeek 请求认证。第三方处理规则与计费以你的账户安排和提供方政策为准。
+          并确认授权后，新版分析会将标题、编号字幕和识别指令发送到官方
+          API；旧版还发送视频信息和字幕指纹。Key 仅用于 DeepSeek
+          请求认证。第三方处理规则与计费以你的账户安排和提供方政策为准。
         </li>
         <li>
           <strong>共享缓存：</strong>默认服务为
           <code>biliskipad.bakapiano.com</code
-          >。查询发送视频标识、字幕指纹、模型和提示词版本。新分析结果保存到本地后，默认自动上传视频信息、广告标记和有限证据句；每段最多
+          >。查询发送视频标识、字幕指纹、模型和提示词版本。新分析结果保存到本地后，默认自动上传视频信息和广告标记。新版证据列表为空，旧版可能附带有限证据句；每段最多
           10 条证据，每条最多 500 字符。0 段广告也属于可共享的有效结果。
+        </li>
+        <li>
+          <strong>转写准确度评估：</strong
+          >新版提供独立的「上传转写字幕用于准确度评估」开关，默认开启。
+          本地语音转写完成后，按此开关向所配置的共享服务上传视频BV、分P、CID、标题、时长、完整转写文本及时间戳、字幕指纹、ASR版本与客户端版本。
+          音频继续留在浏览器；DeepSeek
+          Key和B站Cookie分别用于各自认证。该开关也适用于免Key缓存模式中的本地转写，可在「本地语音转写」区块关闭。
         </li>
       </ul>
       <p>
@@ -88,12 +129,22 @@
         网段统计。计数按最近 7 个 UTC 日期滚动清理，每个来源两次放行至少间隔 1000ms。
       </p>
       <p>
+        转写字幕独立保存为待核验样本，用于后续准确度统计、问题排查与人工复核，由维护者管理和清理。
+        此接口提供提交回执，公开缓存查询继续返回广告标记。转写提交与广告标记提交共用来源IP限流；重复的视频、ASR版本和字幕指纹复用原回执。
+      </p>
+      <p>
         共享标记持续用于后续缓存查询，维护者可以撤销记录。业务数据库备份、运行错误和基础设施日志按运维需要管理，IP
-        计数的滚动清理范围指业务计数表。本站介绍页仅加载本域静态资源。
+        计数的滚动清理范围指业务计数表。本站介绍页仅加载本域资源，并读取公开汇总统计，展示已缓存视频数和缓存广告总时长。
+        统计按视频分 P
+        去重，各取最新有效记录计一次；表示累计可跳过的广告时长。统计接口仅返回汇总数量，IP、Key及个人播放记录保持各自原有范围。
       </p>
       <h2>4. 你可以如何控制？</h2>
       <ul>
         <li>在设置中分别调整自动分析、自动跳过、共享查询和自动上传。</li>
+        <li>本地转写默认关闭，可按需开启并调整CPU并发；短视频豁免为独立设置区块，分钟数可调。</li>
+        <li>
+          「上传转写字幕用于准确度评估」是独立开关，默认开启；关闭后，后续转写文本按本地流程处理，广告标记共享沿用自己的开关。
+        </li>
         <li>
           关闭「分析完成后自动上传到共享缓存」，保留手动上传；关闭「允许上传」总开关，同时停止后续自动与手动提交。
         </li>
@@ -124,7 +175,7 @@
     </main>
     <footer class="site-footer wrap">
       <a class="brand" href="/"
-        ><img src="/assets/icon.png" width="28" height="28" alt="" /><span>BiliSkip</span></a
+        ><img src="/assets/site-icon.svg" width="28" height="28" alt="" /><span>BiliSkip</span></a
       >
       <p>由 bakapiano 维护 · 独立开源项目</p>
       <nav aria-label="页脚导航"><a href="/">返回首页</a><a href="/healthz">服务状态</a></nav>

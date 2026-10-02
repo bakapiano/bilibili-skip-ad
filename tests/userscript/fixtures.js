@@ -1,5 +1,5 @@
 // Deterministic GM/storage/network/Web Locks stand-ins. No live credentials or API calls.
-import { body, labels, ref, usage, video } from "../extension/fixtures.js";
+import { body, jsonOutput, jsonZeroOutput, ref, usage, video } from "../extension/fixtures.js";
 
 export function lockFixture() {
   const held = new Set();
@@ -100,13 +100,13 @@ export function gmFixture({
             data = { body };
             break;
           case "/chat/completions": {
-            const payload = JSON.parse(JSON.parse(details.data).messages[1].content);
-            const output = labels(payload);
-            if (zeroAds) {
-              output.segments = [];
-            }
             data = {
-              choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }],
+              choices: [
+                {
+                  finish_reason: "stop",
+                  message: { content: zeroAds ? jsonZeroOutput : jsonOutput },
+                },
+              ],
               usage,
             };
             break;
@@ -118,6 +118,13 @@ export function gmFixture({
           case "/v1/candidates":
             receipt = JSON.parse(details.data);
             data = { schema_version: 1, status: "accepted", submission_id: "synthetic-receipt" };
+            break;
+          case "/v1/transcripts":
+            data = {
+              schema_version: 1,
+              status: "accepted",
+              submission_id: "synthetic-transcript-receipt",
+            };
             break;
           default:
             throw new Error(`Unmocked endpoint: ${url.pathname}`);

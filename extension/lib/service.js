@@ -1,4 +1,6 @@
 import { MODEL, PROMPT_VERSION } from "./constants.js";
+import { ASR_VERSION, exemptVideo } from "./asr-config.js";
+import { audioTrack } from "./audio.js";
 import {
   AppError,
   assert,
@@ -9,38 +11,171 @@ import {
   sharedOrigin,
   validateLabels,
   canonical,
+  normalize,
+  hash,
 } from "./core.js";
 
 export class AnalysisService {
-  constructor({ db, bili, model, shared, settings, notify = () => {} }) {
-    Object.assign(this, { db, bili, model, shared, settings, notify });
+  constructor({
+    db,
+    bili,
+    model,
+    shared,
+    settings,
+    asr,
+    notify = () => {},
+    taskLock = (_name, task) => task(),
+  }) {
+    Object.assign(this, { db, bili, model, shared, settings, asr, notify, taskLock });
     this.contexts = new Map();
     this.loading = new Map();
     this.inflight = new Map();
-    this.busy = null;
+    this.resources = new Set();
   }
   route(input) {
     const id = identity(input);
     return `${id.bvid}:p${id.page}`;
   }
-  async load(input, reuse = false) {
+  async withResource(name, task) {
+    if (this.resources.has(name)) {
+      throw new AppError(
+        "BUSY",
+        name === "asr"
+          ? "另一个视频正在本地转写，请完成后重试。"
+          : "另一个视频正在请求 DeepSeek，请完成后重试。",
+      );
+    }
+    this.resources.add(name);
+    try {
+      return await this.taskLock(name, task);
+    } finally {
+      this.resources.delete(name);
+    }
+  }
+  async load(input, reuse = false, allowAsr = false, automatic = false, cacheOnly = false) {
     const route = this.route(input);
+    const settings = await this.settings();
+    const policy = JSON.stringify([
+      settings.asrEnabled,
+      settings.shortVideoExempt,
+      settings.shortVideoMinutes,
+    ]);
     const cached = this.contexts.get(route);
-    if (reuse && cached && Date.now() - cached.fetchedAt < 60000) {
+    if (
+      reuse &&
+      cached &&
+      cached.policy === policy &&
+      !cached.context.asrRequired &&
+      Date.now() - cached.fetchedAt < 60000
+    ) {
       return cached.context;
     }
-    if (this.loading.has(route)) {
-      return this.loading.get(route);
+    const taskKey = `${route}:${allowAsr}:${cacheOnly}:${policy}`;
+    if (this.loading.has(taskKey)) {
+      return this.loading.get(taskKey);
     }
-    const promise = this.bili
-      .load(identity(input), (stage, message) => this.notify(route, { stage, message }))
+    const progress = (stage, message) => this.notify(route, { stage, message });
+    const promise = (async () => {
+      const metadata = this.bili.metadata ? await this.bili.metadata(input) : null;
+      if (metadata && exemptVideo(metadata.video, settings)) {
+        return {
+          video: metadata.video,
+          exempt: true,
+          cues: [],
+          source: "",
+          notice: `短视频豁免：时长小于${settings.shortVideoMinutes}分钟，已跳过字幕、转写与广告分析。`,
+        };
+      }
+      try {
+        return await this.bili.load(identity(input), progress, metadata);
+      } catch (error) {
+        if (error.code !== "NO_SUBTITLE" || !metadata || !settings.asrEnabled || !this.asr) {
+          throw error;
+        }
+        const key = await hash({ video: metadata.video, asr: ASR_VERSION });
+        const saved = await this.db.get("transcripts", key);
+        if (saved) {
+          const context = await normalize(
+            metadata.video,
+            saved.context.cues,
+            `local-asr:${ASR_VERSION}`,
+          );
+          assert(
+            context.transcript_sha256 === saved.context.transcript_sha256,
+            "ASR_CACHE",
+            "本地转写缓存校验失败。",
+          );
+          return context;
+        }
+        // Optional platform dependencies gate fresh ASR only; saved transcripts remain reusable.
+        await this.asr.ensureAvailable?.();
+        if (!allowAsr) {
+          return {
+            video: metadata.video,
+            cues: [],
+            asrRequired: true,
+            source: "",
+            notice:
+              !settings.apiKey || !settings.consent
+                ? settings.sharedRead
+                  ? "当前无可用字幕，可手动转写后查询共享缓存。首次下载约239MB模型；转写文本按本地语音转写区块的上传开关处理。"
+                  : "当前无可用字幕。开启共享缓存后，可手动转写并查询已有标记。"
+                : "当前无可用字幕，可使用本地语音转写后分析。首次下载约239MB模型。",
+          };
+        }
+        if (cacheOnly) {
+          assert(settings.sharedRead, "SHARED_DISABLED", "请先开启共享缓存查询。");
+        } else {
+          assert(
+            settings.consent && settings.apiKey,
+            "CONSENT",
+            "请先配置Key并同意将转写字幕发送给DeepSeek。",
+          );
+        }
+        assert(!automatic || settings.autoAnalyze, "CONSENT", "自动分析已关闭。");
+        // Reserve only the CPU path; subtitle/cache reads and model requests can proceed separately.
+        const result = await this.withResource("asr", async () => {
+          progress("audio", "正在获取视频音轨…");
+          const track = await audioTrack(metadata.video, this.bili.fetcher);
+          return this.asr.transcribe(
+            metadata.video,
+            track,
+            settings.asrConcurrency,
+            (text) => progress("asr", text),
+            settings.asrModelSource,
+          );
+        });
+        const context = await normalize(metadata.video, result.cues, `local-asr:${ASR_VERSION}`);
+        await this.db.put("transcripts", {
+          key,
+          context,
+          createdAt: Date.now(),
+          asrVersion: ASR_VERSION,
+          metrics: result.metrics,
+        });
+        try {
+          const receipt = await this.uploadTranscript(context);
+          if (receipt) {
+            progress("asr-upload", "转写字幕已上传，用于后续准确度评估。");
+          }
+        } catch (error) {
+          context.asrUploadWarning = `转写字幕已保存在本机，上传暂未完成：${safeError(error).message}`;
+          await this.db.log({
+            type: "transcript-upload-error",
+            route: context.video_key,
+            code: safeError(error).code,
+          });
+        }
+        return context;
+      }
+    })()
       .then(async (context) => {
-        this.contexts.set(route, { context, fetchedAt: Date.now() });
+        this.contexts.set(route, { context, fetchedAt: Date.now(), policy });
         await this.db.put("contexts", { route, context, fetchedAt: Date.now() });
         return context;
       })
-      .finally(() => this.loading.delete(route));
-    this.loading.set(route, promise);
+      .finally(() => this.loading.delete(taskKey));
+    this.loading.set(taskKey, promise);
     return promise;
   }
   contextInfo(context) {
@@ -50,6 +185,8 @@ export class AnalysisService {
       transcript_sha256: context.transcript_sha256,
       cueCount: context.cues.length,
       subtitleSource: context.source,
+      exempt: Boolean(context.exempt),
+      asrRequired: Boolean(context.asrRequired),
     };
   }
   async metrics(context) {
@@ -133,11 +270,26 @@ export class AnalysisService {
     }
     return cached ? localResult() : { record: null, warning };
   }
-  async prepare(input, { preferShared = false } = {}) {
-    const context = await this.load(input);
+  async prepare(input, { preferShared = false, transcribeForCache = false } = {}) {
+    // Explicit cache-only transcription can prepare an input fingerprint without model authorization.
+    const context = await this.load(input, false, transcribeForCache, false, transcribeForCache);
+    if (context.exempt || context.asrRequired) {
+      return { ...this.contextInfo(context), record: null, notice: context.notice };
+    }
+    const found = await this.findRecord(context, true, preferShared);
+    const settings = await this.settings();
+    const cacheOnly = !settings.apiKey || !settings.consent;
+    const notice =
+      cacheOnly && !found.record && !found.warning
+        ? settings.sharedRead
+          ? "共享缓存暂未收录匹配标记。可稍后再查，或配置 DeepSeek Key 并授权后自行识别。"
+          : "本地缓存暂无匹配标记。可在设置中开启共享缓存，或配置 DeepSeek Key 自行识别。"
+        : "";
     return {
       ...this.contextInfo(context),
-      ...(await this.findRecord(context, true, preferShared)),
+      ...found,
+      warning: found.warning || context.asrUploadWarning || "",
+      notice,
       job: await this.db.get("jobs", this.route(input)),
       metrics: await this.metrics(context),
     };
@@ -147,12 +299,7 @@ export class AnalysisService {
     if (this.inflight.has(route)) {
       return this.inflight.get(route);
     }
-    if (this.busy) {
-      return Promise.reject(new AppError("BUSY", "另一个视频正在分析，请等待该任务完成。"));
-    }
-    this.busy = route;
     const task = this.perform(input, options).finally(() => {
-      this.busy = null;
       this.inflight.delete(route);
     });
     this.inflight.set(route, task);
@@ -175,7 +322,17 @@ export class AnalysisService {
     };
     await update({});
     try {
-      const context = await this.load(input, true);
+      let context = await this.load(input, true, true, automatic);
+      const afterLoad = await this.settings();
+      if (context.exempt || exemptVideo(context.video, afterLoad)) {
+        context = {
+          ...context,
+          exempt: true,
+          notice: `短视频豁免：时长小于${afterLoad.shortVideoMinutes}分钟，已跳过广告分析。`,
+        };
+        await update({ status: "done", stage: "exempt", message: context.notice });
+        return { ...this.contextInfo(context), record: null, notice: context.notice, job };
+      }
       if (!force) {
         const existing = await this.findRecord(context);
         if (existing.record) {
@@ -193,12 +350,39 @@ export class AnalysisService {
         }
       }
       const settings = await this.settings();
+      if (exemptVideo(context.video, settings)) {
+        await update({ status: "done", stage: "exempt", message: "当前视频已按时长豁免。" });
+        return {
+          ...this.contextInfo(context),
+          exempt: true,
+          record: null,
+          notice: job.message,
+          job,
+        };
+      }
       assert(settings.consent, "CONSENT", "请在设置中确认将视频字幕发送给 DeepSeek。");
       assert(settings.apiKey, "KEY", "请先配置 DeepSeek API Key。");
       assert(!automatic || settings.autoAnalyze, "CONSENT", "自动分析当前处于关闭状态。");
-      await update({ stage: "model", message: "DeepSeek Flash 正在识别广告…" });
-      await this.db.log({ type: "api-call", route: context.video_key, model: MODEL });
-      const analysis = await this.model.analyze(context, settings.apiKey);
+      const analysis = await this.withResource("model", async () => {
+        await update({ stage: "model", message: "DeepSeek Flash 正在识别广告…" });
+        await this.db.log({ type: "api-call", route: context.video_key, model: MODEL });
+        return this.model.analyze(context, settings.apiKey);
+      });
+      const finalSettings = await this.settings();
+      if (exemptVideo(context.video, finalSettings)) {
+        await update({
+          status: "done",
+          stage: "exempt",
+          message: "短视频豁免已开启，当前视频保留完整播放。",
+        });
+        return {
+          ...this.contextInfo(context),
+          record: null,
+          exempt: true,
+          notice: job.message,
+          job,
+        };
+      }
       await update({
         stage: "validate",
         message: "正在校验时间段并保存到本地…",
@@ -212,7 +396,7 @@ export class AnalysisService {
         elapsedMs: analysis.elapsedMs,
         usage: analysis.usage,
       });
-      let warning = "";
+      let warning = context.asrUploadWarning || "";
       let uploadNotice = "";
       try {
         // Read the latest switches after the model finishes so an in-flight
@@ -262,6 +446,37 @@ export class AnalysisService {
       throw error;
     }
   }
+  async uploadTranscript(context) {
+    const settings = await this.settings();
+    if (!settings.asrUpload) {
+      return null;
+    }
+    const origin = sharedOrigin(settings.sharedBaseUrl);
+    assert(origin, "SHARED_CONFIG", "请配置转写字幕接收服务域名。");
+    const candidate = await this.shared.transcript(context);
+    const entry = { ...candidate, id: `${origin}:transcript:${candidate.id}`, origin };
+    const previous = await this.db.get("outbox", entry.id);
+    if (previous?.status === "sent") {
+      return previous.receipt;
+    }
+    await this.db.put("outbox", entry);
+    try {
+      const receipt = await this.shared.uploadTranscript(candidate, settings, async () => {
+        const latest = await this.settings();
+        return latest.asrUpload && sharedOrigin(latest.sharedBaseUrl) === origin;
+      });
+      await this.db.put("outbox", {
+        ...entry,
+        status: receipt ? "sent" : "cancelled",
+        receipt,
+        sentAt: receipt ? Date.now() : null,
+      });
+      return receipt;
+    } catch (error) {
+      await this.db.put("outbox", { ...entry, status: "error", error: safeError(error) });
+      throw error;
+    }
+  }
   async upload(key, { automatic = false } = {}) {
     const settings = await this.settings();
     if (automatic && (!settings.sharedUpload || !settings.autoUpload)) {
@@ -272,6 +487,9 @@ export class AnalysisService {
     assert(origin, "SHARED_CONFIG", "请配置共享服务域名。");
     const record = await this.db.get("records", key);
     assert(record, "CACHE", "请先生成并保存广告标记。");
+    if (automatic && exemptVideo(record.video, settings)) {
+      return null;
+    }
     const candidate = await this.shared.candidate(record);
     // Scope local receipts to their destination. The HTTP idempotency key remains
     // the payload hash, while changing servers creates an independent outbox row.

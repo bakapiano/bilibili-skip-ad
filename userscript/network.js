@@ -1,5 +1,7 @@
 import { DEFAULT_SHARED_URL, MAX_BYTES } from "../extension/lib/constants.js";
 import { AppError, assert } from "../extension/lib/core.js";
+import { audioUrl } from "../extension/lib/audio.js";
+import { ASR_MAX_AUDIO_BYTES } from "../extension/lib/asr-config.js";
 
 export function allowedTarget(input) {
   const url = new URL(input);
@@ -12,18 +14,26 @@ export function allowedTarget(input) {
   const model = url.origin === "https://api.deepseek.com";
   const shared = url.origin === DEFAULT_SHARED_URL;
   const subtitle = url.hostname.endsWith(".hdslb.com") && url.pathname.startsWith("/bfs/");
+  const audio = /\.(bilivideo\.com|bilivideo\.cn)$/.test(url.hostname);
+  if (audio) {
+    audioUrl(url.href);
+  }
   assert(
     (bili &&
-      ["/x/web-interface/view", "/x/player/wbi/v2", "/x/v2/subtitle/web/view"].includes(
-        url.pathname,
-      )) ||
+      [
+        "/x/web-interface/view",
+        "/x/player/wbi/v2",
+        "/x/v2/subtitle/web/view",
+        "/x/player/playurl",
+      ].includes(url.pathname)) ||
       (model && url.pathname === "/chat/completions") ||
-      (shared && ["/v1/segments", "/v1/candidates"].includes(url.pathname)) ||
-      subtitle,
+      (shared && ["/v1/segments", "/v1/candidates", "/v1/transcripts"].includes(url.pathname)) ||
+      subtitle ||
+      audio,
     "HOST",
     "请求应发往 B站字幕、DeepSeek 或内置共享缓存接口。",
   );
-  return { url, bili, model, shared };
+  return { url, bili, model, shared, audio };
 }
 
 // GM requests run in Tampermonkey's background context. Keep cookies and bearer
@@ -35,14 +45,18 @@ export function createGMFetch(gm) {
     if (disposed) {
       throw new DOMException("页面任务已结束，请刷新后重试。", "AbortError");
     }
-    const { url, bili, model, shared } = allowedTarget(input);
+    const { url, bili, model, shared, audio } = allowedTarget(input);
     const method = options.method || "GET";
     assert(
-      method === (model || url.pathname === "/v1/candidates" ? "POST" : "GET"),
+      method ===
+        (model || ["/v1/candidates", "/v1/transcripts"].includes(url.pathname) ? "POST" : "GET"),
       "METHOD",
       "请求方法与接口不匹配。",
     );
     const headers = {};
+    if (audio) {
+      headers.Referer = "https://www.bilibili.com/";
+    }
     for (const [name, value] of new Headers(options.headers).entries()) {
       assert(
         ["accept", "content-type", "idempotency-key"].includes(name) ||
@@ -75,7 +89,10 @@ export function createGMFetch(gm) {
       };
       const abort = () => cancel(options.signal.reason);
       // Chrome's GM fetch mode ignores details.timeout; use our own abort timer.
-      const timer = setTimeout(() => cancel(new DOMException("请求超时。", "TimeoutError")), 30000);
+      const timer = setTimeout(
+        () => cancel(new DOMException("请求超时。", "TimeoutError")),
+        audio ? 180000 : 30000,
+      );
       if (options.signal?.aborted) {
         abort();
         return;
@@ -109,7 +126,11 @@ export function createGMFetch(gm) {
                 "网络响应状态异常。",
               );
               const bytes = new Uint8Array(response.response);
-              assert(bytes.byteLength <= MAX_BYTES, "TOO_LARGE", "响应超出大小限制。");
+              assert(
+                bytes.byteLength <= (audio ? ASR_MAX_AUDIO_BYTES : MAX_BYTES),
+                "TOO_LARGE",
+                "响应超出大小限制。",
+              );
               finish(
                 null,
                 new Response([204, 205, 304].includes(response.status) ? null : bytes, {

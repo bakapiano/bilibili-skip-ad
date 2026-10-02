@@ -9,15 +9,20 @@ export class LocalDB {
       return this.pending;
     }
     this.pending = new Promise((resolve, reject) => {
-      const request = this.factory.open(this.name, 1);
-      request.onupgradeneeded = () => {
+      const request = this.factory.open(this.name, 2);
+      request.onupgradeneeded = (event) => {
         const db = request.result;
-        const records = db.createObjectStore("records", { keyPath: "key" });
-        records.createIndex("createdAt", "createdAt");
-        db.createObjectStore("contexts", { keyPath: "route" });
-        db.createObjectStore("jobs", { keyPath: "route" });
-        db.createObjectStore("outbox", { keyPath: "id" });
-        db.createObjectStore("events", { keyPath: "id", autoIncrement: true });
+        if (event.oldVersion < 1) {
+          const records = db.createObjectStore("records", { keyPath: "key" });
+          records.createIndex("createdAt", "createdAt");
+          db.createObjectStore("contexts", { keyPath: "route" });
+          db.createObjectStore("jobs", { keyPath: "route" });
+          db.createObjectStore("outbox", { keyPath: "id" });
+          db.createObjectStore("events", { keyPath: "id", autoIncrement: true });
+        }
+        if (event.oldVersion < 2) {
+          db.createObjectStore("transcripts", { keyPath: "key" });
+        }
       };
       request.onsuccess = () => {
         request.result.onversionchange = () => request.result.close();
@@ -103,7 +108,7 @@ export class LocalDB {
   async clearRecords() {
     // Secrets/settings are in chrome.storage, outside this database operation.
     await Promise.all(
-      ["records", "contexts", "outbox"].map((store) =>
+      ["records", "contexts", "outbox", "transcripts"].map((store) =>
         this.execute(store, "readwrite", (object) => object.clear()),
       ),
     );

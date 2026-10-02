@@ -2,8 +2,21 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { UserscriptRuntime, SETTINGS_KEY } from "../../userscript/runtime.js";
 import { GMStore } from "../../userscript/storage.js";
+import { normalize, hash } from "../../extension/lib/core.js";
+import { AsrResourceGate, loadAsrResources } from "../../userscript/asr-resources.js";
+import { ASR_VERSION } from "../../extension/lib/asr-config.js";
+import { MODEL, PROMPT_VERSION } from "../../extension/lib/constants.js";
 import { gmFixture, lockFixture } from "./fixtures.js";
-import { ref, deferred, flush, labels, usage } from "../extension/fixtures.js";
+import {
+  ref,
+  body,
+  video,
+  labels,
+  deferred,
+  flush,
+  jsonOutput,
+  usage,
+} from "../extension/fixtures.js";
 
 function setup(options = {}) {
   const f = gmFixture(options);
@@ -11,8 +24,9 @@ function setup(options = {}) {
   const runtime = new UserscriptRuntime({
     gm: f.gm,
     locks,
-    location: { href: `https://www.bilibili.com/video/${ref.bvid}/` },
+    location: { href: `https://www.bilibili.com/video/${(options.ref || ref).bvid}/` },
     openOptions() {},
+    asr: options.asr,
   });
   runtime.service.bili.pause = async () => {};
   return { ...f, runtime, locks };
@@ -106,6 +120,75 @@ test("shared cache works with a fresh GM store and no configured key", async () 
   assert.equal(calls(f, "/chat/completions").length, 0);
 });
 
+test("keyless userscript explicitly transcribes for shared cache with DeepSeek consent disabled", async () => {
+  const ctx = await normalize(video, body, `local-asr:${ASR_VERSION}`);
+  let asrCalls = 0;
+  const f = setup({
+    asr: {
+      transcribe: async () => {
+        asrCalls++;
+        return { cues: body };
+      },
+    },
+    handler: (details) => {
+      const url = new URL(details.url);
+      let payload;
+      if (url.pathname === "/x/player/wbi/v2") {
+        payload = { code: 0, data: { subtitle: { subtitles: [] } } };
+      } else if (url.pathname === "/x/player/playurl") {
+        payload = {
+          code: 0,
+          data: {
+            dash: {
+              audio: [
+                {
+                  codecs: "mp4a.40.2",
+                  bandwidth: 64000,
+                  baseUrl: "https://cn-test.bilivideo.com/audio.m4a",
+                },
+              ],
+            },
+          },
+        };
+      } else if (url.pathname === "/v1/segments") {
+        assert.equal(url.searchParams.get("transcript_sha256"), ctx.transcript_sha256);
+        assert.equal(details.headers.authorization, undefined);
+        payload = {
+          schema_version: 1,
+          status: "published",
+          model: MODEL,
+          prompt_version: PROMPT_VERSION,
+          labels: labels(ctx),
+        };
+      }
+      return payload
+        ? { status: 200, response: new TextEncoder().encode(JSON.stringify(payload)).buffer }
+        : undefined;
+    },
+  });
+  await f.runtime.saveSettings({ asrEnabled: true, asrUpload: false });
+  const before = await f.runtime.handle({ type: "GET_PAGE_STATE", video: ref });
+  assert.equal(before.asrRequired, true);
+  assert.equal(asrCalls, 0);
+  const result = await f.runtime.handle({
+    type: "GET_PAGE_STATE",
+    video: ref,
+    transcribeForCache: true,
+    preferShared: true,
+  });
+  assert.equal(result.settings.hasKey, false);
+  assert.equal(result.settings.consent, false);
+  assert.equal(result.record.source, "shared");
+  assert.equal(asrCalls, 1);
+  assert.equal(calls(f, "/chat/completions").length, 0);
+  assert.equal(calls(f, "/v1/candidates").length, 0);
+  assert.equal(f.locks.held.size, 0);
+  await assert.rejects(
+    f.runtime.handle({ type: "GET_PAGE_STATE", video: ref, transcribeForCache: "true" }),
+    { code: "MESSAGE" },
+  );
+});
+
 test("failed auto upload preserves validated records and an explicit retry sends once", async () => {
   let rejectUpload = true;
   const f = setup({
@@ -141,21 +224,167 @@ test("cross-tab lock prevents concurrent model charges and subsequent tabs reuse
   assert.equal(calls(f, "/chat/completions").length, 1);
   await assert.rejects(analyze(second.runtime), { code: "BUSY" });
   assert.equal(calls(second, "/chat/completions").length, 0);
-  const ctx = JSON.parse(
-    JSON.parse(calls(f, "/chat/completions")[0].details.data).messages[1].content,
-  );
   gate.resolve({
     status: 200,
     response: new TextEncoder().encode(
       JSON.stringify({
         usage,
-        choices: [{ finish_reason: "stop", message: { content: JSON.stringify(labels(ctx)) } }],
+        choices: [{ finish_reason: "stop", message: { content: jsonOutput } }],
       }),
     ).buffer,
   });
   await pending;
   assert.equal((await analyze(second.runtime)).record.source, "local-cache");
   assert.equal(calls(second, "/chat/completions").length, 0);
+});
+
+test("cross-tab ASR ownership permits English subtitles and keeps other ASR tasks exclusive", async () => {
+  const started = deferred();
+  const gate = deferred();
+  let transcribing = false;
+  const missingSubtitles = (details) => {
+    const pathname = new URL(details.url).pathname;
+    const payload =
+      pathname === "/x/player/wbi/v2"
+        ? { code: 0, data: { subtitle: { subtitles: [] } } }
+        : pathname === "/x/player/playurl"
+          ? {
+              code: 0,
+              data: {
+                dash: {
+                  audio: [
+                    {
+                      codecs: "mp4a.40.2",
+                      bandwidth: 64000,
+                      baseUrl: "https://cn-test.bilivideo.com/audio.m4a",
+                    },
+                  ],
+                },
+              },
+            }
+          : null;
+    return payload
+      ? { status: 200, response: new TextEncoder().encode(JSON.stringify(payload)).buffer }
+      : undefined;
+  };
+  const first = setup({
+    handler: missingSubtitles,
+    asr: {
+      transcribe: async () => {
+        transcribing = true;
+        started.resolve();
+        await gate.promise;
+        transcribing = false;
+        return { cues: body };
+      },
+    },
+  });
+  await authorize(first);
+  await first.runtime.saveSettings({ asrEnabled: true });
+  const otherRef = { bvid: "BV1eVaz6UENn", page: 1 };
+  const subtitleTab = setup({
+    values: first.values,
+    locks: first.locks,
+    language: "en",
+    ref: otherRef,
+    asr: { transcribe: () => assert.fail("English subtitles use the subtitle path") },
+  });
+  const thirdRef = { bvid: "BV1Lmd2BAEad", page: 1 };
+  let thirdAsrCalls = 0;
+  const third = setup({
+    values: first.values,
+    locks: first.locks,
+    ref: thirdRef,
+    handler: missingSubtitles,
+    asr: {
+      transcribe: async () => {
+        thirdAsrCalls++;
+        return { cues: body };
+      },
+    },
+  });
+  const pending = analyze(first.runtime);
+  await started.promise;
+  try {
+    assert.ok(first.locks.held.has("biliskip:userscript:asr"));
+    const result = await subtitleTab.runtime.handle({
+      type: "ANALYZE",
+      video: otherRef,
+      force: false,
+      automatic: false,
+    });
+    assert.equal(result.subtitleSource, "bilibili:en");
+    assert.equal(result.record.video.bvid, otherRef.bvid);
+    assert.equal(result.job.status, "done");
+    assert.equal(calls(subtitleTab, "/chat/completions").length, 1);
+    assert.equal(calls(subtitleTab, "/x/player/playurl").length, 0);
+    assert.equal(transcribing, true);
+    await assert.rejects(
+      third.runtime.handle({ type: "ANALYZE", video: thirdRef, force: false, automatic: false }),
+      { code: "BUSY" },
+    );
+    assert.equal(calls(third, "/x/player/playurl").length, 0);
+    assert.equal(thirdAsrCalls, 0);
+  } finally {
+    gate.resolve();
+    await pending;
+  }
+  assert.equal(first.locks.held.size, 0);
+  const resumed = await third.runtime.handle({
+    type: "ANALYZE",
+    video: thirdRef,
+    force: false,
+    automatic: false,
+  });
+  assert.equal(resumed.job.status, "done");
+  assert.equal(thirdAsrCalls, 1);
+});
+
+test("different-video model contention is guarded before a paid call or API-call event", async () => {
+  const started = deferred();
+  const gate = deferred();
+  const first = setup({
+    handler: (details) => {
+      if (new URL(details.url).pathname === "/chat/completions") {
+        started.resolve();
+        return gate.promise;
+      }
+    },
+  });
+  await authorize(first);
+  const otherRef = { bvid: "BV1eVaz6UENn", page: 1 };
+  const second = setup({ values: first.values, locks: first.locks, ref: otherRef });
+  const pending = analyze(first.runtime);
+  await started.promise;
+  try {
+    await assert.rejects(
+      second.runtime.handle({ type: "ANALYZE", video: otherRef, force: false, automatic: false }),
+      { code: "BUSY" },
+    );
+    assert.equal(calls(second, "/chat/completions").length, 0);
+    assert.equal((await first.runtime.db.stats()).apiCalls, 1);
+    assert.equal(second.runtime.service.resources.size, 0);
+  } finally {
+    gate.resolve({
+      status: 200,
+      response: new TextEncoder().encode(
+        JSON.stringify({
+          usage,
+          choices: [{ finish_reason: "stop", message: { content: jsonOutput } }],
+        }),
+      ).buffer,
+    });
+    await pending;
+  }
+  assert.equal(first.locks.held.size, 0);
+  const result = await second.runtime.handle({
+    type: "ANALYZE",
+    video: otherRef,
+    force: false,
+    automatic: false,
+  });
+  assert.equal(result.job.status, "done");
+  assert.equal(calls(second, "/chat/completions").length, 1);
 });
 
 test("identity, consent, destination and secret validation precede privileged work", async () => {
@@ -200,4 +429,65 @@ test("GM database shares individual cache rows while contexts/jobs remain per-ta
   await first.clearRecords();
   assert.equal((await second.stats()).records, 0);
   assert.equal(await f.gm.getValue("biliskip:v1:deepseekKey"), "test-only-placeholder");
+});
+
+test("ASR resource failure gates audio/model work while subtitles, caches and saved settings survive", async () => {
+  let missing = true;
+  let reads = 0;
+  const availability = new AsrResourceGate(() => {
+    reads++;
+    return loadAsrResources({});
+  });
+  const asr = {
+    ensureAvailable: () => availability.load(),
+    transcribe: () => assert.fail("Unavailable ASR must stay dormant"),
+  };
+  const f = setup({
+    asr,
+    handler: (details) =>
+      missing && new URL(details.url).pathname === "/x/player/wbi/v2"
+        ? {
+            status: 200,
+            response: new TextEncoder().encode(
+              JSON.stringify({ code: 0, data: { subtitle: { subtitles: [] } } }),
+            ).buffer,
+          }
+        : undefined,
+  });
+  await authorize(f);
+  await f.runtime.saveSettings({ asrEnabled: true });
+  const blocked = await f.runtime.handle({ type: "GET_PAGE_STATE", video: ref });
+  assert.equal(blocked.error.code, "ASR_UNAVAILABLE");
+  assert.equal(blocked.cueCount, 0);
+  assert.equal(blocked.asrRequired, undefined);
+  await assert.rejects(analyze(f.runtime), { code: "ASR_UNAVAILABLE" });
+  assert.equal(reads, 1);
+  assert.equal(calls(f, "/x/player/playurl").length, 0);
+  assert.equal(calls(f, "/chat/completions").length, 0);
+  assert.equal(f.locks.held.size, 0);
+  assert.equal((await f.runtime.settings()).asrEnabled, true);
+  assert.equal(f.values.get(SETTINGS_KEY).asrEnabled, true);
+
+  missing = false;
+  const analyzed = await analyze(f.runtime);
+  assert.equal(analyzed.record.source, "deepseek");
+  assert.equal(analyzed.record.segments.length, 1);
+  assert.equal(calls(f, "/v1/candidates").length, 1);
+  assert.equal(calls(f, "/chat/completions").length, 1);
+  assert.equal(reads, 1);
+  assert.equal((await analyze(f.runtime)).record.source, "local-cache");
+  assert.equal(calls(f, "/chat/completions").length, 1);
+
+  // Test-only prior ASR transcript: dependency availability must not change cache identity.
+  const context = await normalize(video, body, `local-asr:${ASR_VERSION}`);
+  await f.runtime.db.put("transcripts", {
+    key: await hash({ video, asr: ASR_VERSION }),
+    context,
+  });
+  missing = true;
+  const cached = await f.runtime.handle({ type: "GET_PAGE_STATE", video: ref });
+  assert.equal(cached.record.source, "local-cache");
+  assert.equal(cached.subtitleSource, `local-asr:${ASR_VERSION}`);
+  assert.equal(reads, 1);
+  assert.equal(calls(f, "/x/player/playurl").length, 0);
 });

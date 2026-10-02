@@ -52,7 +52,7 @@ try {
     $payloadFiles = @(
         'LICENSE',
         'package.json',
-        'server/app.js', 'server/config.js', 'server/healthcheck.js',
+        'server/app.js', 'server/badges.js', 'server/config.js', 'server/healthcheck.js',
         'server/index.js', 'server/store.js', 'server/validation.js',
         'server/deploy/compose.yaml', 'server/deploy/nginx.conf',
         'server/deploy/nginx-http.conf'

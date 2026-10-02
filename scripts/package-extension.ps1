@@ -13,7 +13,7 @@ try {
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $purpose = if ($Store) { '-chrome-web-store' } else { '' }
     $archive = Join-Path $outputRoot "biliskip-$version$purpose-$stamp.zip"
-    Compress-Archive -Path (Join-Path $extensionRoot '*') -DestinationPath $archive
+    & (Join-Path $PSScriptRoot 'write-extension-zip.ps1') -ExtensionRoot $extensionRoot -ArchivePath $archive
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
     try {
@@ -25,7 +25,8 @@ try {
             if ($entry.FullName.Contains('\') -or $entry.FullName.StartsWith('/') -or $entry.FullName.Split('/').Contains('..')) {
                 throw "Unsafe archive path: $($entry.FullName)"
             }
-            if ($entry.Name -ne '' -and $entry.FullName -ne 'LICENSE' -and $entry.FullName -notmatch '\.(js|html|css|json|png)$') {
+            $legalNotices = @('LICENSE', 'ONNXRUNTIME-LICENSE', 'ONNXRUNTIME-NOTICES', 'SILERO-LICENSE', 'FUNASR-MODEL-LICENSE')
+            if ($entry.Name -ne '' -and $entry.Name -notin $legalNotices -and $entry.FullName -notmatch '\.(js|html|css|json|png|wasm|bin|md|txt)$') {
                 throw "Unexpected archive file: $($entry.FullName)"
             }
         }

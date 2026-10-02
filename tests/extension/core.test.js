@@ -144,7 +144,7 @@ test("strict validation rejects arbitrary timestamps, overlap, invalid evidence 
     { confidence: "0.9" },
     { brand: "" },
     { reason: "" },
-    { evidence_ids: [] },
+    { evidence_ids: null },
     { evidence_ids: [1] },
     { evidence_ids: [2.5] },
   ]) {

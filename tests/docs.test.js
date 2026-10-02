@@ -14,13 +14,16 @@ test("root Markdown stays minimal and maintained documentation links resolve", a
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const file = path.join(directory, entry.name);
       if (entry.isDirectory()) {
+        if (directory === path.join(root, "prompt") && ["data", "runs"].includes(entry.name)) {
+          continue;
+        }
         await collect(file);
       } else if (entry.name.endsWith(".md")) {
         files.push(file);
       }
     }
   }
-  for (const directory of ["docs", "server", "store", "userscript"]) {
+  for (const directory of ["docs", "server", "store", "userscript", "prompt"]) {
     await collect(path.join(root, directory));
   }
   for (const file of files) {
@@ -35,4 +38,17 @@ test("root Markdown stays minimal and maintained documentation links resolve", a
       assert.ok((await stat(resolved)).isFile(), `${file}: ${target}`);
     }
   }
+});
+
+test("README badges use verified channels and disclose install and ad-duration accounting", async () => {
+  const readme = await readFile(path.join(root, "README.md"), "utf8");
+  assert.match(readme, /extension\/icons\/icon-128\.png/);
+  assert.match(readme, /server\/site\/assets\/ad-markers\.png/);
+  assert.match(readme, /img\.shields\.io\/greasyfork\/dt\/597956/);
+  for (const metric of ["videos", "segments", "saved-time"]) {
+    assert.ok(readme.includes(`biliskipad.bakapiano.com%2Fv1%2Fbadges%2F${metric}`));
+  }
+  assert.match(readme, /公开累计安装次数/);
+  assert.match(readme, /每个分 P 计一次/);
+  assert.doesNotMatch(readme, /chrome-web-store\/users/);
 });

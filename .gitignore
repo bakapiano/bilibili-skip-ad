@@ -13,3 +13,5 @@ dist/
 .tmp/
 coverage/
 .eslintcache
+prompt/data/
+prompt/runs/

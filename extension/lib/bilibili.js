@@ -123,12 +123,13 @@ function orderedTracks(...lists) {
       Number(a.lan.startsWith("ai-")) - Number(b.lan.startsWith("ai-")),
   );
 }
-export async function boundedBody(response, limit = MAX_BYTES) {
+export async function boundedBody(response, limit = MAX_BYTES, progress = () => {}) {
   assert(response.ok, "HTTP", `资源请求返回 HTTP ${response.status}。`);
   const reader = response.body?.getReader();
   if (!reader) {
     const bytes = new Uint8Array(await response.arrayBuffer());
     assert(bytes.length <= limit, "TOO_LARGE", "响应超出大小限制。");
+    progress(bytes.length);
     return bytes;
   }
   const chunks = [];
@@ -144,6 +145,7 @@ export async function boundedBody(response, limit = MAX_BYTES) {
       throw new AppError("TOO_LARGE", "响应超出大小限制。");
     }
     chunks.push(value);
+    progress(length);
   }
   const bytes = new Uint8Array(length);
   let offset = 0;
@@ -214,9 +216,8 @@ export class BilibiliClient {
     );
     return result.data;
   }
-  async load(input, progress = () => {}) {
+  async metadata(input) {
     const id = identity(input);
-    progress("video", "正在核对视频身份…");
     const meta = await this.api("/x/web-interface/view", { bvid: id.bvid });
     assert(
       meta.bvid === id.bvid && Number.isSafeInteger(meta.aid) && meta.aid > 0,
@@ -232,6 +233,14 @@ export class BilibiliClient {
       part: part.part,
       duration: part.duration,
     };
+    return { meta, video };
+  }
+  async load(input, progress = () => {}, prepared = null) {
+    progress("video", "正在核对视频身份…");
+    const { meta, video } = prepared || (await this.metadata(input));
+    const id = identity(input);
+    assert(video.bvid === id.bvid && video.page === id.page, "VIDEO", "元数据身份不匹配。");
+    const part = { cid: video.cid };
     progress("subtitle", "正在读取带时间戳字幕…");
     let tracks = [];
     try {

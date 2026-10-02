@@ -6,6 +6,7 @@ import {
   PROMPT_VERSION,
   PRICING,
 } from "./constants.js";
+import { modelSource } from "./asr-config.js";
 
 export class AppError extends Error {
   constructor(code, message, details = undefined) {
@@ -167,7 +168,6 @@ export function validateLabels(context, labels) {
     );
     assert(
       Array.isArray(evidence) &&
-        evidence.length > 0 &&
         evidence.length <= 50 &&
         evidence.every((i) => isId(i) && i >= first && i <= last),
       "OUTPUT",
@@ -249,6 +249,9 @@ export function validateSettings(input = {}) {
     "sharedRead",
     "sharedUpload",
     "autoUpload",
+    "asrEnabled",
+    "asrUpload",
+    "shortVideoExempt",
   ]) {
     assert(typeof settings[key] === "boolean", "SETTINGS", "设置项类型异常。");
   }
@@ -260,9 +263,22 @@ export function validateSettings(input = {}) {
     "自动跳过阈值应介于 0.75 和 1 之间。",
   );
   settings.sharedBaseUrl = sharedOrigin(settings.sharedBaseUrl);
+  assert(modelSource(settings.asrModelSource), "SETTINGS", "请选择内置的模型下载源。");
+  assert(
+    [1, 2, 4, 6, 8].includes(settings.asrConcurrency),
+    "SETTINGS",
+    "本地转写并发可选1、2、4、6、8。",
+  );
+  assert(
+    Number.isFinite(settings.shortVideoMinutes) &&
+      settings.shortVideoMinutes >= 0 &&
+      settings.shortVideoMinutes <= 180,
+    "SETTINGS",
+    "豁免时长应为0至180分钟，可填写小数。",
+  );
   assert(!settings.autoAnalyze || settings.consent, "SETTINGS", "自动分析需要先确认字幕发送授权。");
   assert(
-    !(settings.sharedRead || settings.sharedUpload) || settings.sharedBaseUrl,
+    !(settings.sharedRead || settings.sharedUpload || settings.asrUpload) || settings.sharedBaseUrl,
     "SETTINGS",
     "共享功能需要配置公开服务域名。",
   );

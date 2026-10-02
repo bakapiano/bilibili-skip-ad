@@ -28,17 +28,24 @@ const manifest = JSON.parse(await readFile(path.join(root, "manifest.json"), "ut
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.background.type, "module");
 assert.equal(manifest.version, BUILD_VERSION);
-assert.deepEqual(manifest.permissions, ["storage"]);
+assert.deepEqual(manifest.permissions, [
+  "storage",
+  "offscreen",
+  "unlimitedStorage",
+  "declarativeNetRequestWithHostAccess",
+]);
 assert.equal(manifest.externally_connectable, undefined);
 assert.equal(manifest.web_accessible_resources, undefined);
 assert.equal(
   manifest.content_security_policy.extension_pages,
-  "script-src 'self'; object-src 'none'; base-uri 'none'",
+  "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'none'",
 );
 const allowedHosts = [
   "https://www.bilibili.com/*",
   "https://api.bilibili.com/*",
   "https://*.hdslb.com/*",
+  "https://*.bilivideo.com/*",
+  "https://*.bilivideo.cn/*",
   "https://api.deepseek.com/*",
   "https://biliskipad.bakapiano.com/*",
 ];
@@ -75,6 +82,9 @@ for (const resource of resources) {
 let jsCount = 0;
 for (const file of files) {
   const relative = path.relative(root, file);
+  if (relative.split(path.sep).join("/").startsWith("asr/vendor/")) {
+    continue;
+  }
   if (file.endsWith(".png")) {
     assert.ok(Object.values(manifest.icons).includes(relative.split(path.sep).join("/")), relative);
     continue;

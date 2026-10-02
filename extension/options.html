@@ -12,22 +12,23 @@
         <div>
           <p class="eyebrow">字幕识别 · 本地保存</p>
           <h1>BiliSkip</h1>
-          <p>用你的 DeepSeek Key，识别视频内的商业植入。</p>
+          <p>直接复用共享广告标记；也可使用个人 DeepSeek Key 自行识别。</p>
         </div>
-        <span class="version">Chrome 扩展 · 0.1.4</span>
+        <span class="version">Chrome 扩展 · 0.1.9</span>
       </header>
       <div id="notice" role="status" aria-live="polite"></div>
       <form id="settings-form">
         <section class="card">
           <h2>模型与隐私</h2>
-          <p>模型固定为 <code>deepseek-flash</code>，采用非思考模式和 JSON 输出。</p>
-          <label for="api-key">DeepSeek API Key</label
+          <p>模型固定为 <code>deepseek-flash</code>，采用非思考模式和JSON广告分段输出。</p>
+          <p>共享缓存可直接使用。Key 和字幕发送授权用于调用 DeepSeek 自行识别。</p>
+          <label for="api-key">DeepSeek API Key（可选）</label
           ><input
             id="api-key"
             type="password"
             autocomplete="off"
             spellcheck="false"
-            placeholder="填写 Key；已配置时留空即可保留"
+            placeholder="可留空使用共享缓存；已配置时留空保留"
           />
           <p id="key-status" class="hint"></p>
           <label class="check"
@@ -37,6 +38,64 @@
           <p class="hint">
             Key 存放在当前浏览器的扩展专属存储，访问范围限于扩展后台和设置页。请使用专用额度
             Key。本机扩展存储适合保存个人设置，应与电脑账号一起保护。
+          </p>
+        </section>
+        <section class="card">
+          <h2>本地语音转写</h2>
+          <label class="check"
+            ><input type="checkbox" id="asr-upload" />上传转写字幕用于准确度评估（默认开启）</label
+          >
+          <p class="hint">
+            转写完成后，向共享服务上传视频信息、完整转写文本及时间戳、字幕指纹与模型版本。音频在本机处理。此开关独立于广告标记上传，免Key缓存模式同样遵循此设置，可随时关闭。
+          </p>
+          <label class="check"
+            ><input
+              type="checkbox"
+              id="asr-enabled"
+            />字幕不可用时启用本地语音转写（默认关闭）</label
+          >
+          <label for="asr-concurrency">CPU 并发数</label>
+          <select id="asr-concurrency">
+            <option>1</option>
+            <option selected>2</option>
+            <option>4</option>
+            <option>6</option>
+            <option>8</option>
+          </select>
+          <p class="hint">
+            使用 SenseVoiceSmall INT8，首次按需下载约239MB模型并缓存。每路约512MiB
+            WASM内存，其他音频与模型缓冲另计。默认2路。转写限60分钟以内音轨，音频留在本机。缓存模式可手动转写后匹配共享标记；配置Key并授权后可将字幕发送给DeepSeek自行识别。
+          </p>
+          <label for="model-source">模型下载源</label>
+          <select id="model-source">
+            <option value="biliskip">BiliSkip 本站</option>
+            <option value="hf-mirror">HF-Mirror 镜像</option>
+            <option value="huggingface">Hugging Face 原站</option>
+          </select>
+          <p class="hint">
+            各下载源提供相同模型，下载后统一校验文件大小和SHA-256。第三方源在使用时申请相应域名权限。可先下载到本机缓存，再按需开启转写；下载时保持设置页打开。
+          </p>
+          <p id="model-status" class="hint" role="status">正在检查模型缓存…</p>
+          <progress
+            id="model-download-progress"
+            max="100"
+            value="0"
+            hidden
+            aria-label="模型下载进度"
+          ></progress>
+          <div class="form-actions">
+            <button id="download-model" type="button">下载模型</button>
+            <button id="cancel-model-download" type="button" hidden>取消下载</button>
+            <button id="check-model-cache" type="button">检查缓存</button>
+          </div>
+        </section>
+        <section class="card" id="short-video-section">
+          <h2>短视频豁免</h2>
+          <label class="check"><input type="checkbox" id="short-exempt" />开启短视频豁免</label>
+          <label for="short-minutes">视频短于多少分钟时豁免（可调，支持小数）</label>
+          <input id="short-minutes" type="number" min="0" max="180" step="0.1" value="3" />
+          <p class="hint">
+            小于此时长时直接保留完整视频，跳过字幕获取、ASR、广告分析及缓存标记应用。修改后当前页面会重新核对。
           </p>
         </section>
         <section class="card">
@@ -54,7 +113,7 @@
             建议先试听边界。标记累计超过视频一半时保留手动操作；撤销后本轮会保留对应片段。评分是模型自评，适合配合人工检查。
           </p>
           <p class="hint">
-            原生进度条的金色区间表示广告。自动跳过开启时，主动定位进符合阈值的广告区间会跳至末尾；暂停时的定位也会响应，播放与暂停行为沿用
+            原生进度条仅标记达到评分阈值且通过时长保护的广告区间；试听、撤销保留的片段同步隐藏标记。自动跳过开启时，主动定位进符合阈值的广告区间会跳至末尾；暂停时的定位也会响应，播放与暂停行为沿用
             B站原生控件。
           </p>
         </section>
@@ -117,6 +176,17 @@
           P、CID、字幕指纹、模型和提示词版本区分。重新进入视频时先核对字幕，命中后复用结果。
         </p>
         <div id="cache-list"></div>
+        <div class="cache-pagination" aria-label="缓存列表分页">
+          <label for="cache-page-size">每页</label>
+          <select id="cache-page-size">
+            <option value="10">10条</option>
+            <option value="20">20条</option>
+            <option value="50">50条</option>
+          </select>
+          <button id="cache-page-prev" type="button">上一页</button>
+          <span id="cache-page-status" role="status"></span>
+          <button id="cache-page-next" type="button">下一页</button>
+        </div>
         <div class="form-actions">
           <button id="export-cache" type="button">导出标记 JSON</button
           ><button id="clear-cache" type="button" class="danger">清空本地标记与字幕缓存</button>

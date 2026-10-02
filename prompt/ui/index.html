@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BiliSkip · 测试集评测台</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="logo">B</span>
+        <h1>BiliSkip <span>测试集评测台</span></h1>
+      </div>
+      <span class="local">LOCAL ONLY · 127.0.0.1</span>
+    </header>
+    <main>
+      <section class="panel dataset-home">
+        <div class="section-head">
+          <div>
+            <h2>测试集</h2>
+            <p class="muted small">先看整集表现，再进入样本比较 Prompt、调试边界或整理标注。</p>
+          </div>
+          <button id="refresh">刷新数据</button>
+        </div>
+        <div id="dataset-cards" class="dataset-cards"></div>
+        <div class="dataset-toolbar">
+          <label
+            >当前测试集<select id="cohort-filter" aria-label="数据集筛选">
+              <option value="all">全部字幕输入</option>
+              <option value="community">全部社区对照</option>
+              <option value="community-1000">社区固定 1000 条</option>
+              <option value="community-542">社区随机采集</option>
+              <option value="community-expanded">扩充随机采集</option>
+              <option value="legacy">历史回归集</option>
+            </select></label
+          >
+          <div id="dataset-counts" role="status">正在读取测试集…</div>
+          <button id="prepare-dataset-run" class="primary">测试整个有效集</button>
+        </div>
+        <p class="muted small">
+          移除作用于同一输入在所有测试集中的资格，原始字幕、模型输出与历史报告保留。当前名单变化后，本地重算新旧指标使用同一份有效名单。
+        </p>
+      </section>
+      <nav class="workspace-tabs" aria-label="评测工作区">
+        <button id="tab-overview" data-workspace="overview" aria-pressed="true">测试集结果</button>
+        <button
+          id="tab-issues"
+          data-workspace="issues"
+          aria-pressed="false"
+          aria-controls="overview-view"
+        >
+          问题样本 <span id="issue-count" class="tab-count">0</span>
+        </button>
+        <button id="tab-samples" data-workspace="samples" aria-pressed="false">样本管理</button>
+        <button id="tab-compare" data-workspace="compare" aria-pressed="false">
+          新旧 Prompt 对比
+        </button>
+        <button id="tab-debug" data-workspace="debug" aria-pressed="false">样本调试</button>
+        <a href="/experiments.html">正文穿插 · 实验报告</a>
+      </nav>
+      <div id="overview-view" class="workspace-view">
+        <section class="panel">
+          <div class="section-head">
+            <h2 id="result-heading">测试集结果</h2>
+            <select id="run-history" aria-label="历史批次">
+              <option value="">选择批次</option>
+            </select>
+          </div>
+          <div class="run-actions">
+            <label
+              >计分名单<select id="metric-view">
+                <option value="current">当前有效测试集</option>
+                <option value="original">原始运行名单</option>
+              </select></label
+            ><button id="recalculate">按当前选择重算指标</button>
+          </div>
+          <p id="run-status" role="status">选择批次查看整体结果</p>
+          <p class="muted small">
+            IoU 对有广告参考的视频取平均；正文误跳率和广告遗漏率按累计秒数计算。评分
+            ≥0.90，应用50%保护。社区标注作为待复核参考。
+          </p>
+          <div id="run-metrics" class="metric-cards"></div>
+          <section id="outliers" aria-label="本批次差异样本">
+            <h3 id="outlier-heading">差异较大样本</h3>
+            <div id="outlier-shortcuts" class="outlier-shortcuts" aria-label="常用差异筛选">
+              <button id="show-noted" type="button" aria-pressed="false">
+                有原因标签 <span id="noted-count">0</span>
+              </button>
+              <button id="show-preserve" type="button" aria-pressed="false">
+                正文保护违例 <span id="preserve-count">0</span>
+              </button>
+              <button id="show-all-results" type="button" aria-pressed="true">全部结果</button>
+            </div>
+            <p class="muted small">
+              查看所选批次的实际输出。额外标记和遗漏按参考区间计算；社区完整性与广告定义需结合原片核对。
+            </p>
+            <div class="outlier-controls">
+              <input
+                id="outlier-search"
+                aria-label="搜索批次差异样本"
+                placeholder="视频标题 / BV / 品牌"
+              />
+              <select id="outlier-filter" aria-label="差异样本类型">
+                <option value="all">全部结果</option>
+                <option value="removed">已移除样本</option>
+                <option value="noted">已有复核线索</option>
+                <option value="preserve">正文保护违例</option>
+                <option value="protected">触发50%保护</option>
+                <option value="low">含低于0.90区间</option>
+                <option value="none">模型输出零广告</option>
+                <option value="error">执行 / 格式失败</option>
+              </select>
+              <select id="outlier-sort" aria-label="差异排序">
+                <option value="body-seconds">额外标记秒数 ↓</option>
+                <option value="body-rate">正文误跳率 ↓</option>
+                <option value="miss-seconds">遗漏广告秒数 ↓</option>
+                <option value="miss-rate">广告遗漏率 ↓</option>
+                <option value="iou">IoU ↑（较差优先）</option>
+              </select>
+            </div>
+            <p id="outlier-count" role="status">选择批次后展示</p>
+            <div class="scroll-table" id="outlier-table"></div>
+            <div class="outlier-pagination">
+              <button id="outlier-prev" disabled>上一页</button>
+              <span id="outlier-page">0 / 0</span>
+              <button id="outlier-next" disabled>下一页</button>
+            </div>
+          </section>
+          <details class="recent-results">
+            <summary>最近20条运行明细</summary>
+            <div id="run-results"></div>
+          </details>
+        </section>
+      </div>
+      <div id="samples-view" class="workspace-view" hidden>
+        <section class="panel">
+          <div class="section-head">
+            <h2>测试集样本 <span id="selected-count">已选 0</span></h2>
+            <div class="run-actions">
+              <button id="select-visible">勾选当前筛选结果</button
+              ><button id="clear-selected">清空勾选</button
+              ><button id="debug-selected">测试勾选样本</button>
+            </div>
+          </div>
+          <div class="sample-filters">
+            <input id="search" aria-label="搜索测试集样本" placeholder="视频标题 / BV" />
+            <select id="membership-filter" aria-label="样本资格">
+              <option value="active">有效样本</option>
+              <option value="removed">已移除</option>
+              <option value="all">全部资格</option>
+            </select>
+            <select id="score-filter" aria-label="评分筛选">
+              <option value="all">全部评分</option>
+              <option value="high">含评分 ≥ 0.90 的区间</option>
+              <option value="low">含评分 &lt; 0.90 的区间</option>
+            </select>
+            <select id="transcript-filter" aria-label="字幕筛选">
+              <option value="all">全部字幕状态</option>
+              <option value="ready">已验证字幕 · 模型待运行</option>
+              <option value="exact">原始字幕 · 指纹一致</option>
+              <option value="alternate">替代字幕 · 指纹不同</option>
+              <option value="missing">缺少完整字幕</option>
+            </select>
+            <select id="issue-filter" aria-label="差异筛选">
+              <option value="all">全部样本</option>
+              <option value="protected">触发 50% 保护</option>
+              <option value="community">有社区 sponsor 对照</option>
+              <option value="gap">与社区差异较大</option>
+              <option value="v5">当前 v5 记录</option>
+              <option value="reviewed">含人工复核</option>
+            </select>
+            <select id="split-filter" aria-label="数据划分">
+              <option value="all">开发集 + 保留集</option>
+              <option value="development">开发集</option>
+              <option value="holdout">保留组（同BV分组）</option>
+            </select>
+          </div>
+          <p class="muted small">
+            分数筛选依据历史模型结果；原始字幕与社区参考按记录保留。移除时填写依据，恢复操作同样留痕。
+          </p>
+          <div id="case-list" class="dataset-case-list" aria-live="polite"></div>
+          <div class="outlier-pagination">
+            <button id="sample-prev">上一页</button><span id="sample-page">0 / 0</span
+            ><button id="sample-next">下一页</button>
+          </div>
+        </section>
+      </div>
+      <div id="compare-view" class="workspace-view" hidden>
+        <section class="panel" id="comparison-panel">
+          <h2>新旧 Prompt 回归对比</h2>
+          <div class="compare-controls">
+            <label
+              >基线批次<select id="baseline-run">
+                <option value="">选择基线</option>
+              </select></label
+            >
+            <label
+              >候选批次<select id="candidate-run">
+                <option value="">选择候选</option>
+              </select></label
+            >
+            <button id="compare-runs">比较两个批次</button>
+          </div>
+          <label
+            ><input
+              id="compare-configurations"
+              type="checkbox"
+            />方案对照：允许输出协议和输出预算不同，保持模型、输入与参考一致</label
+          >
+          <p class="muted small">
+            输入、参考标注、模型配置和轮次匹配后计分；失败、缺失或取消的结果会显示覆盖缺口。IoU
+            对有参考广告的视频取平均；两个错误率按累计秒数相除。
+          </p>
+          <p id="comparison-status" role="status">等待选择批次</p>
+          <div id="comparison-metrics" class="metric-cards"></div>
+          <div id="comparison-results"></div>
+        </section>
+      </div>
+      <div id="debug-view" class="workspace-view" hidden>
+        <div class="debug-heading">
+          <button id="back-to-dataset">← 返回测试集</button>
+          <div>
+            <h2 id="debug-title">从测试集中选择样本</h2>
+            <p id="debug-context" class="muted small">
+              在样本管理或差异列表中点击样本，比较已有结果或试跑新 Prompt。
+            </p>
+          </div>
+        </div>
+        <div class="debug-layout">
+          <div id="prompt-editor">
+            <section class="panel editor">
+              <div class="section-head">
+                <h2>系统 Prompt</h2>
+                <button id="reset-prompt">载入生产版本</button>
+              </div>
+              <div class="prompt-actions">
+                <input
+                  id="prompt-name"
+                  placeholder="草稿名称"
+                  maxlength="100"
+                  aria-label="草稿名称"
+                /><button id="save-prompt">保存草稿</button
+                ><select id="saved-prompts" aria-label="已保存草稿">
+                  <option value="">载入已保存草稿</option>
+                </select>
+              </div>
+              <textarea id="prompt" rows="17" spellcheck="false" aria-label="系统提示词"></textarea>
+              <label for="run-name">实验批次名称</label>
+              <input
+                id="run-name"
+                maxlength="100"
+                placeholder="例如 baseline-v5 / candidate-boundary"
+              />
+              <p class="muted small">
+                deepseek-flash · 非思考 · temperature
+                0。JSON广告分段上限8192输出tokens；历史五列模式上限2048。
+              </p>
+              <label for="key">DeepSeek API Key <span id="key-status" class="muted"></span></label
+              ><input
+                id="key"
+                type="password"
+                autocomplete="off"
+                placeholder="可使用服务进程 DEEPSEEK_API_KEY；此处输入只随本批次发送，保留在内存"
+              />
+              <div class="run-settings">
+                <label
+                  >输出协议<select id="output-protocol">
+                    <option value="pipe">历史五列</option>
+                    <option value="partition-ad-only">仅广告JSON v2</option>
+                  </select></label
+                >
+                <label
+                  >模型并发<select id="concurrency">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="4" selected>4</option>
+                    <option value="8">8</option>
+                  </select></label
+                >
+                <label
+                  >每个样本重复
+                  <select id="repeats">
+                    <option value="1">1 次</option>
+                    <option value="3">3 次</option>
+                    <option value="5">5 次</option>
+                  </select></label
+                ><label class="check"
+                  ><input type="checkbox" id="allow-alternate" />允许指纹不同的替代字幕实验</label
+                >
+              </div>
+              <p id="call-count" class="notice">勾选样本后显示本批次调用数</p>
+              <label for="confirmed-calls">超过 20 次调用时，请输入本次调用总数确认</label>
+              <input
+                id="confirmed-calls"
+                type="number"
+                min="1"
+                max="3000"
+                placeholder="大批次计费确认"
+              />
+              <label class="check consent"
+                ><input type="checkbox" id="consent" />确认将选中视频的完整字幕与标题发送到
+                DeepSeek，按 API 实际用量计费</label
+              >
+              <div class="run-actions">
+                <button id="run-current" class="primary">运行当前样本</button
+                ><button id="run-selected">运行勾选样本</button
+                ><button id="cancel-run" disabled>停止批次</button>
+              </div>
+              <p class="muted small">
+                单批最多 3000
+                次调用。停止会取消当前等待并停止后续调用，已发出请求可能计费。原始缓存与生产 prompt
+                始终保留。
+              </p>
+            </section>
+          </div>
+          <div class="debug-results">
+            <section class="panel">
+              <h2>该样本的 Prompt 实验</h2>
+              <p id="sample-run-status" class="muted small">选择样本后展示相同字幕输入的全部实验</p>
+              <div id="sample-runs"></div>
+              <div class="compare-controls">
+                <label
+                  >样本基线<select id="debug-baseline">
+                    <option value="">选择实验</option>
+                  </select></label
+                ><label
+                  >样本候选<select id="debug-candidate">
+                    <option value="">选择实验</option>
+                  </select></label
+                ><button id="compare-sample">比较该样本</button>
+              </div>
+              <div id="sample-comparison"></div>
+            </section>
+            <article id="outlier-detail" class="panel" tabindex="-1" aria-live="polite">
+              <p class="empty">选择一条实验结果，查看本轮区间、字幕和复核线索。</p>
+            </article>
+            <details class="panel" id="sample-source">
+              <summary>字幕、社区原始数据与人工复核</summary>
+              <section id="sample-panel"><p class="empty">请选择测试集样本</p></section>
+            </details>
+          </div>
+        </div>
+      </div>
+      <details class="panel dataset-audit">
+        <summary>数据集初筛</summary>
+        <pre id="audit-summary">等待加载</pre>
+      </details>
+    </main>
+    <dialog id="exclusion-dialog" aria-labelledby="exclusion-title">
+      <form id="exclusion-form">
+        <h2 id="exclusion-title">从有效测试集移除</h2>
+        <p id="exclusion-target"></p>
+        <p class="muted small">
+          原始数据与历史输出保留。当前有效名单的指标将重新计算，新评测使用更新后的名单。
+        </p>
+        <label for="exclusion-reason">原因（必填）</label
+        ><textarea
+          id="exclusion-reason"
+          rows="4"
+          required
+          maxlength="1000"
+          placeholder="例如：原片已核对，社区将片头标成商业广告"
+        ></textarea>
+        <p id="exclusion-error" class="error" role="status"></p>
+        <div class="run-actions">
+          <button id="cancel-exclusion" type="button">取消</button
+          ><button id="confirm-exclusion" type="submit" class="primary">确认移除</button>
+        </div>
+      </form>
+    </dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

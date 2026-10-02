@@ -103,3 +103,16 @@ test("updated record rebuilds markers and preserves a site's later positioning c
   f.timeline.clear();
   assert.equal(f.main.style.position, "absolute");
 });
+
+test("visible subset changes rebuild and remove layers without changing record identity", () => {
+  const f = fixture();
+  const second = { start: 30, end: 40, brand: "第二段" };
+  f.record.segments.push(second);
+  f.timeline.sync(f.record, f.video, [second]);
+  assert.equal(f.main.children[0].children.length, 1);
+  assert.equal(f.main.children[0].children[0].dataset.start, "30");
+  f.timeline.sync(f.record, f.video, []);
+  assert.equal(f.main.children.length, 0);
+  f.timeline.sync(f.record, f.video, f.record.segments);
+  assert.equal(f.main.children[0].children.length, 2);
+});

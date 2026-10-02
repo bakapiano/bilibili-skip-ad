@@ -73,7 +73,13 @@ test("native install choices display the corresponding instructions without site
   );
   userscript.labels[0].click();
   expectSelection(false);
-  assert.equal(document.querySelectorAll("script").length, 0);
+  assert.equal(document.querySelectorAll("script").length, 1);
+  assert.equal(
+    document.querySelector("script").getAttribute("src"),
+    "/stats.js?v={{ASSET_VERSION}}",
+  );
+  assert.equal(document.querySelector("script").defer, true);
+  assert.equal(document.querySelector("script").textContent, "");
 });
 
 test("public installation docs share the released Chrome store entry", async () => {
@@ -117,12 +123,20 @@ test("landing page build resolves versions and ships only explicit public assets
     assert.equal(html.includes("{{"), false);
     assert.ok(html.includes(manifest.version));
     assert.match(html, /name="viewport"/);
-    assert.equal(/<script\b|\son\w+=|<iframe\b/i.test(html), false);
+    assert.equal(/\son\w+=|<iframe\b/i.test(html), false);
+    const dom = new JSDOM(html);
+    const scripts = [...dom.window.document.querySelectorAll("script")];
+    assert.equal(scripts.length, name === "privacy.html" ? 0 : 1);
+    for (const script of scripts) {
+      assert.equal(script.getAttribute("src"), `/stats.js?v=${result.assetVersion}`);
+      assert.equal(script.textContent, "");
+    }
+    dom.window.close();
     for (const [, resource] of html.matchAll(/(?:src|href)="([^"#]+)"/g)) {
       if (
         resource.startsWith("https:") ||
         resource.startsWith("/downloads/") ||
-        resource === "/" ||
+        resource.split(/[?#]/)[0] === "/" ||
         resource === "/healthz"
       ) {
         continue;
@@ -136,6 +150,7 @@ test("landing page build resolves versions and ships only explicit public assets
     "index.html",
     "privacy.html",
     "site.css",
+    "stats.js",
   ]);
 });
 
@@ -179,6 +194,26 @@ test("site publishes identical versioned and stable download bytes with matching
   }
 });
 
+test("site-only build preserves the selected published ZIP version and emits no downloads", async (t) => {
+  const output = await mkdtemp(path.join(root, ".tmp", "site-only-test-"));
+  t.after(() => rm(output, { recursive: true, force: true }));
+  const result = await buildSite(output, undefined, { version: "0.1.6" });
+  assert.equal(result.version, "0.1.6");
+  assert.equal(
+    result.files.some((file) => file.includes("downloads/")),
+    false,
+  );
+  const home = await readFile(path.join(output, "site/index.html"), "utf8");
+  assert.match(home, /biliskip-0\.1\.6\.zip\.sha256/);
+  assert.equal(
+    result.files.some((file) => /results\.(html|js)$/.test(file)),
+    false,
+  );
+  const installer = await readFile(path.join(root, "server/deploy/site.sh"), "utf8");
+  assert.match(installer, /cmp "\$previous\/site\/downloads\/biliskip\.zip"/);
+  assert.match(installer, /trap rollback EXIT/);
+});
+
 test("Nginx serves the landing page alongside unchanged API forwarding and limits", async () => {
   const nginx = await readFile(path.join(root, "server/deploy/nginx.conf"), "utf8");
   assert.match(nginx, /root \/srv\/biliskipad\/current\/site;/);
@@ -187,7 +222,10 @@ test("Nginx serves the landing page alongside unchanged API forwarding and limit
   assert.match(nginx, /client_max_body_size 64k/);
   assert.match(nginx, /proxy_set_header X-Real-IP \$remote_addr/);
   assert.match(nginx, /location = \/healthz/);
-  assert.match(nginx, /script-src 'none'/);
+  assert.match(nginx, /script-src 'self'/);
+  assert.match(nginx, /connect-src 'self'/);
+  assert.match(nginx, /location = \/stats\.js/);
+  assert.doesNotMatch(nginx, /unsafe-inline|unsafe-eval/);
   for (const name of ["biliskip.zip", "biliskip.zip.sha256"]) {
     const start = nginx.indexOf(`location = /downloads/${name} {`);
     assert.ok(start >= 0);
@@ -199,4 +237,78 @@ test("Nginx serves the landing page alongside unchanged API forwarding and limit
   }
   assert.match(installer, /Landing page readiness check failed/);
   assert.ok(installer.includes("site/downloads/biliskip.zip|site/downloads/biliskip.zip.sha256"));
+});
+
+test("home statistics request only public aggregates and render numbers with textContent", async (t) => {
+  const html = await readFile(path.join(root, "server/site/index.html"), "utf8");
+  const source = await readFile(path.join(root, "server/site/stats.js"), "utf8");
+  const valid = {
+    schema_version: 1,
+    basis: "latest-active-per-video-part-ad-duration",
+    cached_videos: 1234,
+    saved_seconds: 3661.9,
+  };
+  const cases = [
+    { data: valid, videos: "1,234 个", saved: "1 小时 1 分 1 秒" },
+    { data: { ...valid, cached_videos: 0, saved_seconds: 0 }, videos: "0 个", saved: "0 秒" },
+    { data: { ...valid, saved_seconds: 59.999 }, videos: "1,234 个", saved: "59 秒" },
+    { data: { ...valid, saved_seconds: -1 } },
+    { data: { ...valid, cached_videos: '<img src=x onerror="alert(1)">' } },
+    { data: { ...valid, basis: "other" } },
+    { data: { ...valid, schema_version: 2 } },
+    { status: 503 },
+    { error: true },
+  ];
+  for (const item of cases) {
+    const dom = new JSDOM(html, { runScripts: "outside-only", url: "https://cache.example.com/" });
+    t.after(() => dom.window.close());
+    dom.window.AbortSignal = AbortSignal;
+    let calls = 0;
+    dom.window.fetch = async (url, options) => {
+      calls++;
+      assert.equal(url, "/v1/stats");
+      assert.equal(options.credentials, "omit");
+      assert.equal(options.redirect, "error");
+      assert.equal(options.headers, undefined);
+      if (item.error) {
+        throw new Error("Simulated network error");
+      }
+      return { ok: item.status !== 503, json: async () => item.data };
+    };
+    await dom.window.eval(source);
+    const document = dom.window.document;
+    assert.equal(calls, 1);
+    assert.equal(document.getElementById("stats-videos").textContent, item.videos || "—");
+    assert.equal(document.getElementById("stats-saved").textContent, item.saved || "—");
+    assert.match(
+      document.getElementById("stats-status").textContent,
+      item.saved ? /各计一次/ : /暂时不可用/,
+    );
+    assert.equal(document.querySelectorAll(".cache-statistics img").length, 0);
+  }
+});
+
+test("site theme navigation icons and real demo links are present on every page", async () => {
+  const css = await readFile(new URL("../server/site/site.css", import.meta.url), "utf8");
+  assert.match(css, /--link: #245fd5/);
+  assert.doesNotMatch(css, /#156a54|#16634f|#eef7f3|#0e4f3e/);
+  for (const file of ["index.html", "privacy.html"]) {
+    const dom = new JSDOM(
+      await readFile(new URL(`../server/site/${file}`, import.meta.url), "utf8"),
+    );
+    const links = [...dom.window.document.querySelectorAll(".site-header nav a")];
+    assert.equal(links.length, 4);
+    assert.equal(dom.window.document.querySelectorAll('a[href*="/results"]').length, 0);
+    for (const link of links) {
+      assert.ok(link.querySelector('svg[aria-hidden="true"]'));
+    }
+    if (file === "index.html") {
+      const demo = dom.window.document.querySelector(".demo-result");
+      assert.match(demo.textContent, /转转/);
+      assert.match(demo.textContent, /0\.98/);
+      assert.match(demo.textContent, /35\.492/);
+      assert.ok(demo.querySelector('a[href="https://www.bilibili.com/video/BV1pFUDBKE8X/?t=167"]'));
+    }
+    dom.window.close();
+  }
 });

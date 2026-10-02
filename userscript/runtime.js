@@ -18,20 +18,29 @@ export const SETTINGS_KEY = "biliskip:v1:settings";
 const KEY_NAME = "biliskip:v1:deepseekKey";
 
 export class UserscriptRuntime {
-  constructor({ gm, location, locks, openOptions, fetcher = createGMFetch(gm) }) {
-    Object.assign(this, { gm, location, locks, openOptions, fetcher });
+  constructor({ gm, location, locks, openOptions, asr, fetcher = createGMFetch(gm) }) {
+    Object.assign(this, { gm, location, locks, openOptions, fetcher, asr });
     this.listeners = new Set();
     this.db = new GMStore(gm);
     this.service = new AnalysisService({
       db: this.db,
       bili: new BilibiliClient(fetcher),
       model: new DeepSeekClient(fetcher),
+      asr,
       shared: new SharedClient(fetcher, async (origin) => origin === `${DEFAULT_SHARED_URL}/*`),
       settings: () => this.settings(),
+      taskLock: (name, task) => this.exclusive(name, task),
       notify: (route, payload) => this.emit({ type: "BILISKIP_PROGRESS", route, ...payload }),
     });
     const upload = this.service.upload.bind(this.service);
     this.service.upload = (key, options) => this.exclusive("upload", () => upload(key, options));
+    const uploadTranscript = this.service.uploadTranscript.bind(this.service);
+    this.service.uploadTranscript = async (context) => {
+      if (!(await this.settings()).asrUpload) {
+        return null;
+      }
+      return this.exclusive("upload", () => uploadTranscript(context));
+    };
   }
   exclusive(name, callback) {
     assert(this.locks?.request, "LOCK", "请使用具备 Web Locks 的现代浏览器执行分析与上传。");
@@ -111,9 +120,21 @@ export class UserscriptRuntime {
     }
     const ref = this.verify(message.video);
     if (message.type === "GET_PAGE_STATE") {
+      assert(
+        message.transcribeForCache === undefined || typeof message.transcribeForCache === "boolean",
+        "MESSAGE",
+        "缓存转写参数异常。",
+      );
       let result;
       try {
-        result = await this.service.prepare(ref, { preferShared: message.preferShared === true });
+        const prepare = () =>
+          this.service.prepare(ref, {
+            preferShared: message.preferShared === true,
+            transcribeForCache: message.transcribeForCache === true,
+          });
+        result = message.transcribeForCache
+          ? await this.exclusive(`analysis:${this.service.route(ref)}`, prepare)
+          : await prepare();
       } catch (error) {
         result = { record: null, cueCount: 0, error: safeError(error) };
       }
@@ -129,7 +150,8 @@ export class UserscriptRuntime {
         "MESSAGE",
         "分析参数异常。",
       );
-      const result = await this.exclusive("analysis", () =>
+      // Per-video ownership prevents duplicate charges while ASR/model use separate resource locks.
+      const result = await this.exclusive(`analysis:${this.service.route(ref)}`, () =>
         this.service.analyze(ref, {
           force: message.force,
           automatic: message.automatic,

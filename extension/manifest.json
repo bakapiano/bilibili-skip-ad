@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BiliSkip · AI 广告跳过",
-  "version": "0.1.4",
+  "version": "0.1.9",
   "description": "读取 B站字幕和线上共享缓存，直连个人 DeepSeek API 识别广告，在进度条标记区间并按需跳过。",
   "minimum_chrome_version": "120",
   "icons": {
@@ -10,11 +10,18 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage",
+    "offscreen",
+    "unlimitedStorage",
+    "declarativeNetRequestWithHostAccess"
+  ],
   "host_permissions": [
     "https://www.bilibili.com/*",
     "https://api.bilibili.com/*",
     "https://*.hdslb.com/*",
+    "https://*.bilivideo.com/*",
+    "https://*.bilivideo.cn/*",
     "https://api.deepseek.com/*",
     "https://biliskipad.bakapiano.com/*"
   ],
@@ -39,6 +46,6 @@
   },
   "options_page": "options.html",
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'none'"
   }
 }

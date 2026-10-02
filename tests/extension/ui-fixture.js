@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { sharedOrigin } from "../../extension/lib/core.js";
+import { bindModelSettings } from "../../extension/lib/model-settings.js";
+import { modelSource } from "../../extension/lib/asr-config.js";
 
-export function uiFixture(name, chrome) {
+export function uiFixture(name, chrome, extras = {}) {
   const html = readFileSync(new URL(`../../extension/${name}.html`, import.meta.url), "utf8");
   class Element {
     constructor(tag = "div") {
@@ -55,6 +57,14 @@ export function uiFixture(name, chrome) {
   const sandbox = {
     chrome,
     sharedOrigin,
+    bindModelSettings,
+    modelSource,
+    // Deterministic cache stand-in: ordinary options tests perform no model downloads.
+    AsrModelCache: class {
+      async status() {
+        return { cached: false, bytes: 239233841 };
+      }
+    },
     URL,
     Blob,
     confirm: () => true,
@@ -76,6 +86,7 @@ export function uiFixture(name, chrome) {
       },
     },
   };
+  Object.assign(sandbox, extras);
   vm.createContext(sandbox);
   vm.runInContext(
     readFileSync(new URL("../../extension/player-core.js", import.meta.url), "utf8"),

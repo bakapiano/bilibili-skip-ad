@@ -64,6 +64,8 @@ globalThis.BiliSkipContent = function startContent(transport) {
       ref &&
       P.parse(location.href)?.route === ref.route &&
       state.record &&
+      !state.exempt &&
+      !(settings.shortVideoExempt && video?.duration < settings.shortVideoMinutes * 60) &&
       video &&
       !awaitMedia &&
       video.readyState >= 1 &&
@@ -197,19 +199,31 @@ globalThis.BiliSkipContent = function startContent(transport) {
     render();
     maybeAuto();
   }
-  async function refresh(preferShared = false) {
+  async function refresh(preferShared = false, transcribeForCache = false) {
     if (!ref || loading || analyzing) {
       return;
     }
     const epoch = generation;
     loading = true;
     stage = "loading";
-    message = preferShared ? "正在读取字幕并查询线上缓存…" : "正在读取字幕并查询缓存…";
+    message = transcribeForCache
+      ? "正在准备本地转写并查询共享缓存…"
+      : preferShared
+        ? "正在读取字幕并查询线上缓存…"
+        : "正在读取字幕并查询缓存…";
     render();
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          apply(await send({ type: "GET_PAGE_STATE", video: ref, preferShared }), epoch);
+          apply(
+            await send({
+              type: "GET_PAGE_STATE",
+              video: ref,
+              preferShared,
+              ...(transcribeForCache ? { transcribeForCache: true } : {}),
+            }),
+            epoch,
+          );
           break;
         } catch (error) {
           if (error.code !== "SENDER" || attempt === 2) {
@@ -261,7 +275,8 @@ globalThis.BiliSkipContent = function startContent(transport) {
     if (
       !ref ||
       state.record ||
-      !state.cueCount ||
+      (!state.cueCount && !state.asrRequired) ||
+      state.exempt ||
       loading ||
       analyzing ||
       document.visibilityState !== "visible" ||
@@ -336,7 +351,14 @@ globalThis.BiliSkipContent = function startContent(transport) {
         : awaitMedia
           ? "等待新视频媒体就绪…"
           : playback || message;
-    timeline.sync(valid() ? state.record : null, video);
+    const markerRecord = valid() ? state.record : null;
+    const markerSegments = markerRecord
+      ? markerRecord.segments.filter(
+          (item, index) =>
+            !ignored.has(index) && P.automatic(markerRecord, item, settings.confidenceThreshold),
+        )
+      : [];
+    timeline.sync(markerRecord, video, markerSegments);
     if (state.metrics) {
       host.dataset.apiCalls = String(state.metrics.apiCalls);
       host.dataset.cacheHits = String(state.metrics.cacheHits);
@@ -382,6 +404,9 @@ globalThis.BiliSkipContent = function startContent(transport) {
     if (loading || analyzing || uploading) {
       fail("BUSY", "当前任务正在进行，请稍后操作。");
     }
+    if (state.exempt && ["analyze", "skip", "preview", "jump", "upload"].includes(data.action)) {
+      fail("EXEMPT", "当前视频已按时长豁免，可在设置中调整分钟数。");
+    }
     if (
       ["analyze", "skip", "undo", "preview", "jump", "upload"].includes(data.action) &&
       data.recordToken !== snapshot().recordToken
@@ -394,7 +419,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
     switch (data.action) {
       case "analyze":
         if (!settings.hasKey || !settings.consent) {
-          send({ type: "OPEN_OPTIONS" }).catch(showError);
+          refresh(Boolean(settings.sharedRead), Boolean(state.asrRequired && settings.sharedRead));
         } else {
           analyze(Boolean(state.record), false);
         }
@@ -539,9 +564,17 @@ globalThis.BiliSkipContent = function startContent(transport) {
       }
       render();
     } else if (data.type === "BILISKIP_SETTINGS") {
+      const policyChanged = ["shortVideoExempt", "shortVideoMinutes", "asrEnabled"].some(
+        (key) => settings[key] !== data.settings[key],
+      );
       const wasAutomatic = settings.autoAnalyze;
       const wasSkip = settings.autoSkip;
       settings = data.settings;
+      if (policyChanged && ref) {
+        state = { ...state, record: null };
+        autoAttempted.delete(ref.route);
+        refresh();
+      }
       if (!wasSkip && settings.autoSkip) {
         ignored.clear();
         completed.clear();

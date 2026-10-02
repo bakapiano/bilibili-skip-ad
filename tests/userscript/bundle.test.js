@@ -4,8 +4,9 @@ import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { JSDOM } from "jsdom";
-import { bundleUserscript } from "../../scripts/build-userscript.js";
+import { bundleUserscript, USERSCRIPT_VERSION } from "../../scripts/build-userscript.js";
 import { DEFAULT_SETTINGS } from "../../extension/lib/constants.js";
+import { ASR_ASSETS, asrAssetUrl } from "../../userscript/asr-assets.js";
 import { SETTINGS_KEY } from "../../userscript/runtime.js";
 import { gmFixture, lockFixture } from "./fixtures.js";
 import { flush, ref } from "../extension/fixtures.js";
@@ -14,25 +15,28 @@ const bundle = await bundleUserscript();
 const license = (await readFile(new URL("../../LICENSE", import.meta.url), "utf8")).trim();
 
 async function settle(predicate) {
-  for (let attempt = 0; attempt < 100; attempt++) {
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
     if (predicate()) {
       return;
     }
-    await flush();
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
   assert.ok(predicate(), "Expected the simulated userscript task to settle");
 }
 
 function browserFixture(options = {}) {
-  const f = gmFixture();
+  const f = gmFixture(options.network);
   f.values.set(SETTINGS_KEY, {
     ...DEFAULT_SETTINGS,
     consent: true,
     autoAnalyze: true,
     autoSkip: true,
+    ...options.settings,
   });
-  f.values.set("biliskip:v1:deepseekKey", "test-only-placeholder");
+  f.values.set("biliskip:v1:deepseekKey", options.key ?? "test-only-placeholder");
   Object.assign(f.gm.info, options.info);
+  Object.assign(f.gm, options.gm);
   const dom = new JSDOM(
     `<!doctype html><body>
     <div class="bpx-player-container"><video></video>
@@ -87,6 +91,7 @@ function browserFixture(options = {}) {
     Response,
     Headers,
     structuredClone,
+    fetch: () => assert.fail("Bundle tests use GM fixtures and inline resource data"),
     alert: (value) => alerts.push(value),
     prompt: () => nextPrompt,
     confirm: () => true,
@@ -153,7 +158,16 @@ function browserFixture(options = {}) {
 
 test("single-file artifact declares scoped grants and bundles shared business/player/view sources", () => {
   assert.ok(bundle.code.startsWith("// ==UserScript==\n"));
-  assert.match(bundle.code, /@version\s+0\.1\.4\.2/);
+  assert.ok(bundle.code.includes(`// @version      ${USERSCRIPT_VERSION}\n`));
+  assert.ok(Buffer.byteLength(bundle.code) < 2 * 1024 * 1024);
+  for (const asset of ASR_ASSETS) {
+    assert.ok(
+      bundle.code.includes(
+        `// @resource     ${asset.name} ${asrAssetUrl(asset)}#sha256=${asset.sha256}\n`,
+      ),
+    );
+  }
+  assert.match(bundle.code, /@grant\s+GM\.getResourceUrl/);
   assert.match(bundle.code, /^\/\/ @license\s+MIT$/m);
   assert.ok(bundle.code.includes(`/*\n${license}\n*/`));
   assert.doesNotMatch(bundle.code, /@sandbox|sandboxMode|DOM 隔离/);
@@ -162,6 +176,9 @@ test("single-file artifact declares scoped grants and bundles shared business/pl
   }
   assert.match(bundle.code, /@noframes/);
   assert.doesNotMatch(bundle.code, /@connect\s+\*|@require|@grant\s+unsafeWindow/);
+  for (const domain of ["hf-mirror.com", "huggingface.co", "hf.co"]) {
+    assert.ok(bundle.code.includes(`// @connect      ${domain}`));
+  }
   assert.doesNotMatch(bundle.code, /\bsk-[a-zA-Z0-9]{24,}\b|\bchrome\.(runtime|tabs|storage)/);
   assert.doesNotThrow(() => new vm.Script(bundle.code));
   for (const file of [
@@ -177,6 +194,12 @@ test("single-file artifact declares scoped grants and bundles shared business/pl
     assert.ok(bundle.inputs.includes(file), file);
   }
   assert.equal(bundle.inputs.includes("extension/background.js"), false);
+  assert.equal(
+    bundle.inputs.some((name) =>
+      /asr-poc|qwen|sherpa|sensevoice|web-llm|biliskip:asr-assets/i.test(name),
+    ),
+    false,
+  );
 });
 
 test("bundled userscript: subtitles/model/upload -> markers -> explicit seek skip -> undo/preview -> SPA", async (t) => {
@@ -256,6 +279,18 @@ test("bundle menus configure a GM-only key and cleanup listeners/controllers on 
     await f.menu("BiliSkip · 设置");
     await settle(() => f.panel()?.getElementById("key-state").textContent.includes("已配置"));
     assert.equal(f.panel().getElementById("settings-panel").hidden, false);
+    assert.equal(
+      f.panel().getElementById("short-minutes").closest("section").id,
+      "short-video-section",
+    );
+    assert.equal(
+      f.panel().getElementById("setting-shortVideoExempt").closest("section").id,
+      "short-video-section",
+    );
+    assert.notEqual(
+      f.panel().getElementById("asr-concurrency").closest("section").id,
+      "short-video-section",
+    );
     f.setPrompt("different-synthetic-key");
     await f.menu("BiliSkip · 配置 DeepSeek Key");
     assert.equal(f.values.get("biliskip:v1:deepseekKey"), "different-synthetic-key");
@@ -320,4 +355,186 @@ test("BFCache restore recreates the userscript controller and reuses its saved m
     1,
   );
   assert.equal(f.document.querySelectorAll(".biliskip-native-marker").length, 2);
+});
+
+test("missing ASR resources leave the full subtitle, upload, marker, skip and cache paths working", async (t) => {
+  let resourceReads = 0;
+  const f = browserFixture({
+    settings: { asrEnabled: true },
+    gm: {
+      getResourceUrl: async () => {
+        resourceReads++;
+        return undefined;
+      },
+    },
+  });
+  t.after(() => f.close());
+  await settle(
+    () => f.document.getElementById("biliskip-userscript-root")?.dataset.state === "ready",
+  );
+  assert.equal(resourceReads, 0, "subtitle analysis keeps optional resource reads lazy");
+  await f.menu("BiliSkip · 设置");
+  const root = f.panel();
+  f.click(root.getElementById("check-asr-resources"));
+  await settle(() => root.getElementById("asr-resource-status").dataset.state === "unavailable");
+  assert.equal(resourceReads, 2);
+  assert.equal(root.getElementById("setting-asrEnabled").disabled, true);
+  assert.equal(root.getElementById("asr-resource-controls").disabled, true);
+  assert.equal(root.getElementById("download-model").matches(":disabled"), true);
+  assert.equal(root.getElementById("setting-asrUpload").disabled, false);
+  assert.equal(root.getElementById("setting-consent").disabled, false);
+  assert.equal(root.getElementById("setting-autoSkip").disabled, false);
+  assert.equal(root.getElementById("setting-sharedRead").disabled, false);
+  assert.equal(root.getElementById("check-asr-resources").disabled, false);
+  assert.equal(f.values.get(SETTINGS_KEY).asrEnabled, true);
+  assert.equal(f.menus.has("BiliSkip · 查看启动提示"), false);
+  f.tick();
+  assert.equal(f.document.querySelectorAll(".biliskip-native-marker").length, 2);
+  f.video.currentTime = 12;
+  f.video.dispatchEvent(new f.window.Event("seeked"));
+  assert.equal(f.video.currentTime, 20.05);
+  f.click(root.getElementById("undo"));
+  await flush();
+  assert.equal(f.video.currentTime, 12);
+  f.click(root.getElementById("online"));
+  await settle(() => {
+    f.tick();
+    return root.getElementById("source").textContent === "线上缓存";
+  });
+  assert.equal(
+    f.requests.filter(({ details }) => details.url.includes("/chat/completions")).length,
+    1,
+  );
+  f.window.history.pushState({}, "", "/video/BV1pFUDBKE8Y/");
+  f.tick();
+  await settle(
+    () => f.document.getElementById("biliskip-userscript-root").dataset.state === "ready",
+  );
+  assert.equal(resourceReads, 2, "SPA subtitle reads keep the failed ASR dependency dormant");
+  assert.equal(f.alerts.length, 0);
+
+  // Test-only manager recovery using the real pinned assets, without an HTTP fallback.
+  const urls = new Map();
+  for (const asset of ASR_ASSETS) {
+    const bytes = await readFile(
+      new URL(`../../extension/asr/vendor/${asset.file}`, import.meta.url),
+    );
+    urls.set(asset.name, `data:application/octet-stream;base64,${bytes.toString("base64")}`);
+  }
+  f.gm.getResourceUrl = async (name) => urls.get(name);
+  f.click(root.getElementById("check-asr-resources"));
+  await settle(() => root.getElementById("asr-resource-status").dataset.state === "ready");
+  assert.equal(root.getElementById("setting-asrEnabled").disabled, false);
+  assert.equal(root.getElementById("setting-asrEnabled").checked, true);
+  assert.equal(root.getElementById("asr-resource-controls").disabled, false);
+  assert.equal(root.getElementById("download-model").matches(":disabled"), false);
+  assert.equal(f.requests.filter(({ details }) => details.url.includes("/audio.m4a")).length, 0);
+});
+
+test("no-subtitle startup reports ASR-only degradation before audio or paid model requests", async (t) => {
+  const f = browserFixture({
+    settings: { asrEnabled: true },
+    network: {
+      handler: (details) =>
+        new URL(details.url).pathname === "/x/player/wbi/v2"
+          ? {
+              status: 200,
+              response: new TextEncoder().encode(
+                JSON.stringify({ code: 0, data: { subtitle: { subtitles: [] } } }),
+              ).buffer,
+            }
+          : undefined,
+    },
+  });
+  t.after(() => f.close());
+  await settle(
+    () =>
+      f.document.getElementById("biliskip-userscript-root")?.dataset.errorCode ===
+      "ASR_UNAVAILABLE",
+  );
+  await f.menu("BiliSkip · 设置");
+  assert.match(f.panel().getElementById("asr-resource-status").textContent, /当前页面暂停/);
+  assert.equal(f.menus.has("BiliSkip · 查看启动提示"), false);
+  assert.equal(
+    f.requests.filter(({ details }) => /playurl|chat\/completions|audio\.m4a/.test(details.url))
+      .length,
+    0,
+  );
+  assert.equal(f.values.get(SETTINGS_KEY).asrEnabled, true);
+});
+
+test("model pre-download checks optional resources first and keeps cached-model inspection available", async (t) => {
+  const f = browserFixture();
+  t.after(() => f.close());
+  await f.menu("BiliSkip · 设置");
+  const root = f.panel();
+  f.click(root.getElementById("download-model"));
+  await settle(
+    () =>
+      root.getElementById("asr-resource-status").dataset.state === "unavailable" &&
+      root.getElementById("model-status").textContent.includes("当前页面暂停"),
+  );
+  assert.equal(root.getElementById("download-model").matches(":disabled"), true);
+  assert.equal(root.getElementById("check-model-cache").disabled, false);
+  assert.equal(root.getElementById("cancel-model-download").hidden, true);
+  assert.equal(
+    f.requests.some(({ details }) => /\.onnx|\.wasm|support\.bin/.test(details.url)),
+    false,
+  );
+});
+
+test("combined shared-service and ASR-resource outages preserve analysis, local skip and keyless playback", async (t) => {
+  for (const key of ["test-only-placeholder", ""]) {
+    const f = browserFixture({
+      key,
+      settings: { asrEnabled: true },
+      network: {
+        handler: (details) =>
+          new URL(details.url).hostname === "biliskipad.bakapiano.com"
+            ? { status: 503, response: new ArrayBuffer(0) }
+            : undefined,
+      },
+    });
+    t.after(() => f.close());
+    await settle(
+      () =>
+        f.document.getElementById("biliskip-userscript-root")?.dataset.state ===
+        (key ? "ready" : "idle"),
+    );
+    await f.menu("BiliSkip · 设置");
+    const root = f.panel();
+    f.click(root.getElementById("check-asr-resources"));
+    await settle(() => root.getElementById("asr-resource-status").dataset.state === "unavailable");
+    assert.match(root.getElementById("status").textContent, /503/);
+    assert.equal(f.menus.has("BiliSkip · 查看启动提示"), false);
+    assert.equal(f.video.paused, false);
+    assert.equal(root.getElementById("toggle").disabled, false);
+    assert.equal(root.getElementById("setting-sharedRead").disabled, false);
+    assert.equal(
+      f.requests.filter(({ details }) => details.url.includes("/chat/completions")).length,
+      key ? 1 : 0,
+    );
+    f.tick();
+    if (key) {
+      assert.equal(root.getElementById("source").textContent, "DeepSeek Flash");
+      assert.equal(f.document.querySelectorAll(".biliskip-native-marker").length, 2);
+      f.video.currentTime = 12;
+      f.video.dispatchEvent(new f.window.Event("seeked"));
+      assert.equal(f.video.currentTime, 20.05);
+      f.click(root.getElementById("online"));
+      await settle(() => {
+        f.tick();
+        return root.getElementById("source").textContent === "本地缓存";
+      });
+      assert.match(root.getElementById("status").textContent, /503/);
+      assert.equal(f.document.querySelectorAll(".biliskip-native-marker").length, 2);
+    } else {
+      assert.equal(root.getElementById("source").textContent, "缓存模式");
+      assert.equal(f.document.querySelectorAll(".biliskip-native-marker").length, 0);
+      f.video.currentTime = 12;
+      f.video.dispatchEvent(new f.window.Event("seeked"));
+      assert.equal(f.video.currentTime, 12);
+    }
+    assert.equal(f.alerts.length, 0);
+  }
 });

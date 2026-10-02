@@ -1,9 +1,11 @@
 import { createServer } from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { clientIp } from "./config.js";
-import { HttpError, validateCandidate, validateQuery } from "./validation.js";
+import { BADGE_METRICS, statsBadge } from "./badges.js";
+import { HttpError, validateCandidate, validateQuery, validateTranscript } from "./validation.js";
 
 export const MAX_BODY_BYTES = 64 * 1024;
+export const MAX_TRANSCRIPT_BYTES = 512 * 1024;
 
 function authorized(header, token) {
   if (!token) {
@@ -14,15 +16,15 @@ function authorized(header, token) {
   return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
-function readJson(request, timeoutMs) {
+function readJson(request, timeoutMs, limit = MAX_BODY_BYTES) {
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers["content-type"] || "")) {
     throw new HttpError(415, "CONTENT_TYPE", "提交内容应使用 application/json。");
   }
   if (request.headers["content-encoding"] && request.headers["content-encoding"] !== "identity") {
     throw new HttpError(415, "CONTENT_ENCODING", "请直接提交 JSON 文本。");
   }
-  if (Number(request.headers["content-length"]) > MAX_BODY_BYTES) {
-    throw new HttpError(413, "TOO_LARGE", "提交上限为 64 KiB。");
+  if (Number(request.headers["content-length"]) > limit) {
+    throw new HttpError(413, "TOO_LARGE", `提交上限为 ${limit / 1024} KiB。`);
   }
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -40,8 +42,8 @@ function readJson(request, timeoutMs) {
     };
     const onData = (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        finish(new HttpError(413, "TOO_LARGE", "提交上限为 64 KiB。"));
+      if (size > limit) {
+        finish(new HttpError(413, "TOO_LARGE", `提交上限为 ${limit / 1024} KiB。`));
       } else {
         chunks.push(chunk);
       }
@@ -102,11 +104,17 @@ export function createCacheServer({
       };
       const handle = async () => {
         const url = new URL(request.url, "http://localhost");
+        const badgeMetric = BADGE_METRICS.find((metric) => url.pathname === `/v1/badges/${metric}`);
         if (request.method === "GET" && url.pathname === "/healthz") {
           send(200, { ok: true, schema_version: 1 });
           return;
         }
-        if (!["/v1/candidates", "/v1/segments"].includes(url.pathname)) {
+        if (
+          !["/v1/candidates", "/v1/segments", "/v1/stats", "/v1/transcripts"].includes(
+            url.pathname,
+          ) &&
+          !badgeMetric
+        ) {
           throw new HttpError(404, "NOT_FOUND", "接口不存在。");
         }
         if (request.method === "OPTIONS") {
@@ -114,7 +122,27 @@ export function createCacheServer({
           send(204);
           return;
         }
-        if (request.method === "POST" && url.pathname === "/v1/candidates") {
+        if (request.method === "GET" && badgeMetric) {
+          if (url.search) {
+            throw new HttpError(400, "INVALID_INPUT", "徽章接口使用固定统计路径。");
+          }
+          response.setHeader("Cache-Control", "public, max-age=300");
+          send(200, statsBadge(badgeMetric, store.publicStats(now())));
+          return;
+        }
+        if (request.method === "GET" && url.pathname === "/v1/stats") {
+          if (url.search) {
+            throw new HttpError(400, "INVALID_INPUT", "统计地址应为 /v1/stats。");
+          }
+          const result = store.publicStats(now());
+          response.setHeader("Cache-Control", "public, max-age=60");
+          send(200, result);
+          return;
+        }
+        if (
+          request.method === "POST" &&
+          ["/v1/candidates", "/v1/transcripts"].includes(url.pathname)
+        ) {
           response.setHeader("Connection", "close");
           const time = now();
           const ip = clientIp(request, trustedProxies);
@@ -127,12 +155,21 @@ export function createCacheServer({
             throw new HttpError(401, "UNAUTHORIZED", "共享服务令牌验证失败。");
           }
           if (url.search) {
-            throw new HttpError(400, "INVALID_INPUT", "提交地址应为 /v1/candidates。");
+            throw new HttpError(400, "INVALID_INPUT", `提交地址应为 ${url.pathname}。`);
           }
-          const payload = await readJson(request, bodyTimeoutMs);
+          const transcript = url.pathname === "/v1/transcripts";
+          const payload = await readJson(
+            request,
+            bodyTimeoutMs,
+            transcript ? MAX_TRANSCRIPT_BYTES : MAX_BODY_BYTES,
+          );
           const key = request.headers["idempotency-key"];
-          const cacheKey = validateCandidate(payload, key);
-          const saved = store.save(cacheKey, key, payload, ip, time);
+          const cacheKey = transcript
+            ? validateTranscript(payload, key)
+            : validateCandidate(payload, key);
+          const saved = transcript
+            ? store.saveTranscript(cacheKey, key, payload, ip, time)
+            : store.save(cacheKey, key, payload, ip, time);
           send(saved.created ? 201 : 200, saved.receipt);
           return;
         }

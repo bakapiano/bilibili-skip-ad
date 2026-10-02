@@ -24,7 +24,8 @@
 1. 在公开 HTTPS 地址部署隐私政策草稿，核对维护者和联系渠道，确认内容后移除草稿提示。商店后台填写实际可访问的 URL。
 2. 按 `privacy-disclosures.md` 核对凭据本机存储的静态加密要求。当前代码采用扩展专属本机存储，完成审查和必要调整后提交相应版本。
 3. 核对截图中第三方视频画面的使用权限，必要时替换成已授权视频的实拍截图。
-4. 安排审核者可使用的模型测试方式和额度，通过适当的私密渠道提供测试凭据。
+4. Edge在Notes for Certification中填写[免登录、免Key的英文审核流程](edge-certification-notes.en.md)，使用已发布的MC演示缓存；可选模型功能沿用个人API账户。
+   新增权限字段可使用[中文权限说明](permission-justifications.zh-CN.md)，分别填写offscreen、unlimitedStorage和declarativeNetRequestWithHostAccess。
 5. 确认隐私披露与实际运营后，在商店后台提交审核。
 
 本素材包准备了文件和填写草稿，公开部署、账户设置和提交审核由发布者确认执行。

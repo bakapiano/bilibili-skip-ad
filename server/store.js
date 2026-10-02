@@ -34,8 +34,17 @@ export class CacheStore {
         PRIMARY KEY (ip, day)
       );
       CREATE INDEX IF NOT EXISTS ip_counts_day ON ip_counts(day);
+      CREATE TABLE IF NOT EXISTS transcripts (
+        transcript_key TEXT PRIMARY KEY,
+        id TEXT NOT NULL UNIQUE,
+        request_hash TEXT NOT NULL UNIQUE,
+        payload TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        review_status TEXT NOT NULL DEFAULT 'unreviewed'
+      );
     `);
     this.nextCleanup = 0;
+    this.publicStatsCache = null;
   }
 
   transaction(callback) {
@@ -111,6 +120,7 @@ export class CacheStore {
       this.db
         .prepare("UPDATE ip_counts SET stored = stored + 1 WHERE ip = ? AND day = ?")
         .run(ip, Math.floor(now / DAY_MS));
+      this.publicStatsCache = null;
       return {
         created: true,
         receipt: { schema_version: 1, status: "accepted", submission_id: id },
@@ -135,6 +145,82 @@ export class CacheStore {
     };
   }
 
+  saveTranscript(transcriptKey, requestHash, payload, ip, now) {
+    return this.transaction(() => {
+      const previous = this.db
+        .prepare("SELECT id FROM transcripts WHERE transcript_key = ?")
+        .get(transcriptKey);
+      if (previous) {
+        return {
+          created: false,
+          receipt: { schema_version: 1, status: "accepted", submission_id: previous.id },
+        };
+      }
+      const id = randomUUID();
+      this.db
+        .prepare(
+          "INSERT INTO transcripts(transcript_key, id, request_hash, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+        )
+        .run(transcriptKey, id, requestHash, JSON.stringify(payload), now);
+      this.db
+        .prepare("UPDATE ip_counts SET stored = stored + 1 WHERE ip = ? AND day = ?")
+        .run(ip, Math.floor(now / DAY_MS));
+      return {
+        created: true,
+        receipt: { schema_version: 1, status: "accepted", submission_id: id },
+      };
+    });
+  }
+
+  transcriptStats() {
+    return this.db
+      .prepare(
+        "SELECT COUNT(*) AS transcripts, COUNT(DISTINCT json_extract(payload, '$.video.bvid')) AS videos, MAX(created_at) AS latest_at FROM transcripts",
+      )
+      .get();
+  }
+
+  publicStats(now = Date.now()) {
+    if (this.publicStatsCache && now < this.publicStatsCache.expiresAt) {
+      return this.publicStatsCache.value;
+    }
+    // One latest active result per video part prevents prompt/subtitle variants double counting.
+    const totals = this.db
+      .prepare(
+        `
+      WITH ranked AS (
+        SELECT payload,
+          json_extract(payload, '$.video.bvid') AS bvid,
+          ROW_NUMBER() OVER (
+            PARTITION BY json_extract(payload, '$.video.bvid'), json_extract(payload, '$.video.page')
+            ORDER BY created_at DESC, id DESC
+          ) AS position
+        FROM records WHERE active = 1
+      ), latest AS (
+        SELECT payload, bvid FROM ranked WHERE position = 1
+      )
+      SELECT COUNT(DISTINCT bvid) AS cached_videos,
+        COUNT(*) AS cached_parts,
+        (SELECT COUNT(*) FROM records WHERE active = 1) AS cached_records,
+        COALESCE(SUM(json_array_length(payload, '$.segments')), 0) AS ad_segments,
+        COALESCE((SELECT SUM(json_extract(segment.value, '$.end') -
+          json_extract(segment.value, '$.start')) FROM latest,
+          json_each(latest.payload, '$.segments') AS segment), 0) AS saved_seconds
+      FROM latest
+    `,
+      )
+      .get();
+    const value = {
+      schema_version: 1,
+      ...totals,
+      saved_seconds: Math.round(totals.saved_seconds * 1000) / 1000,
+      basis: "latest-active-per-video-part-ad-duration",
+      updated_at: new Date(now).toISOString(),
+    };
+    this.publicStatsCache = { value, expiresAt: now + 60000 };
+    return value;
+  }
+
   stats() {
     this.prune(Date.now());
     return this.db
@@ -155,7 +241,11 @@ export class CacheStore {
   }
 
   revoke(id) {
-    return this.db.prepare("UPDATE records SET active = 0 WHERE id = ?").run(id).changes;
+    const changes = this.db.prepare("UPDATE records SET active = 0 WHERE id = ?").run(id).changes;
+    if (changes) {
+      this.publicStatsCache = null;
+    }
+    return changes;
   }
 
   close() {

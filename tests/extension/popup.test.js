@@ -95,6 +95,34 @@ test("native popup renders markers, language, metrics and all playback/cache act
   assert.equal(f.options(), 1);
 });
 
+test("keyless popup offers cache lookup and keeps shared-marker playback actions available", async () => {
+  const f = await setup();
+  const state = sample();
+  state.settings.hasKey = false;
+  state.settings.consent = false;
+  f.setState(state);
+  await f.poll();
+  assert.equal(f.get("analyze").textContent, "查询共享缓存");
+  assert.equal(f.get("skip").disabled, false);
+  assert.equal(f.get("toggle").disabled, false);
+  assert.match(f.get("meta").textContent, /缓存模式/);
+  await f.get("analyze").emit("click");
+  await flush();
+  assert.equal(f.requests.at(-1).action, "analyze");
+  assert.equal(f.options(), 0);
+  state.record = null;
+  state.recordToken = "";
+  state.asrRequired = true;
+  f.setState(state);
+  await f.poll();
+  assert.equal(f.get("analyze").textContent, "转写并查询共享缓存");
+  assert.equal(f.get("source").textContent, "缓存模式");
+  state.settings.sharedRead = false;
+  f.setState(state);
+  await f.poll();
+  assert.equal(f.get("analyze").textContent, "读取本地缓存");
+});
+
 test("popup honors busy/read/upload switches and clears markers when the page changes", async () => {
   const f = await setup();
   const busy = sample();

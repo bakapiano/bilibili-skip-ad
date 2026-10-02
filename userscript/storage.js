@@ -1,7 +1,14 @@
 import { assert } from "../extension/lib/core.js";
 
 const PREFIX = "biliskip:v1:";
-const KEYS = { records: "key", outbox: "id", events: "id", jobs: "route", contexts: "route" };
+const KEYS = {
+  records: "key",
+  outbox: "id",
+  events: "id",
+  jobs: "route",
+  contexts: "route",
+  transcripts: "key",
+};
 
 // Each persistent row gets a GM key, avoiding lost updates from whole-db writes
 // in separate tabs. Full subtitles and running jobs are scoped to this page.
@@ -62,7 +69,7 @@ export class GMStore {
   }
   async clearRecords() {
     this.memory.contexts.clear();
-    for (const store of ["records", "outbox"]) {
+    for (const store of ["records", "outbox", "transcripts"]) {
       for (const row of await this.all(store)) {
         await this.remove(store, row[KEYS[store]]);
       }

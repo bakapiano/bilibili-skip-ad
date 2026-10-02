@@ -88,6 +88,7 @@ test("background startup, sender checks and network-error response preserve secr
           sharedBaseUrl: "https://another.example.com",
           sharedRead: false,
           sharedUpload: false,
+          asrUpload: false,
         },
       },
       ui,

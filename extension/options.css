@@ -223,6 +223,26 @@ a:focus-visible {
   outline: 2px solid #178269;
   outline-offset: 2px;
 }
+#model-download-progress {
+  width: 100%;
+  height: 10px;
+  accent-color: #127a65;
+}
+.cache-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+.cache-pagination select {
+  width: auto;
+  margin: 0;
+}
+.cache-pagination label {
+  margin: 0;
+}
+
 @media (max-width: 600px) {
   main {
     padding: 18px 12px;

@@ -1,5 +1,17 @@
 import { createHash } from "node:crypto";
 
+const OPTIONAL_EVIDENCE_PROMPT_VERSIONS = new Set([
+  "ad-cues-v3-pipe",
+  "ad-cues-v4-topic",
+  "ad-cues-v5-obvious",
+  "ad-cues-v6-json",
+]);
+const ACCEPTED_PROMPT_VERSIONS = new Set([
+  "ad-cues-v1",
+  "ad-cues-v2-compact",
+  ...OPTIONAL_EVIDENCE_PROMPT_VERSIONS,
+]);
+
 export class HttpError extends Error {
   constructor(status, code, message) {
     super(message);
@@ -63,7 +75,7 @@ function validateIdentity(value) {
     "字幕指纹格式异常。",
   );
   requireValue(
-    value.model === "deepseek-flash" && value.prompt_version === "ad-cues-v1",
+    value.model === "deepseek-flash" && ACCEPTED_PROMPT_VERSIONS.has(value.prompt_version),
     "模型或提示词版本异常。",
   );
 }
@@ -154,7 +166,8 @@ export function validateCandidate(payload, idempotencyKey) {
     );
     requireValue(
       Array.isArray(label.evidence_ids) &&
-        label.evidence_ids.length > 0 &&
+        (OPTIONAL_EVIDENCE_PROMPT_VERSIONS.has(payload.prompt_version) ||
+          label.evidence_ids.length > 0) &&
         label.evidence_ids.length <= 50 &&
         label.evidence_ids.every(
           (id) => positiveInteger(id) && id >= label.start_id && id <= label.end_id,
@@ -198,4 +211,79 @@ export function validateCandidate(payload, idempotencyKey) {
     "Idempotency-Key 应为请求体的 canonical JSON SHA-256。",
   );
   return cacheIdentity(identity);
+}
+
+export function validateTranscript(payload, idempotencyKey) {
+  exactKeys(payload, [
+    "schema_version",
+    "video",
+    "asr_version",
+    "client_version",
+    "transcript_sha256",
+    "cues",
+  ]);
+  requireValue(payload.schema_version === 1, "协议版本异常。");
+  exactKeys(payload.video, ["bvid", "page", "cid", "duration", "title", "part"]);
+  const { video, cues } = payload;
+  requireValue(
+    /^BV[0-9A-Za-z]{10}$/.test(video.bvid) &&
+      positiveInteger(video.page, 1000) &&
+      positiveInteger(video.cid),
+    "视频身份异常。",
+  );
+  requireValue(
+    Number.isFinite(video.duration) && video.duration > 0 && video.duration <= 3600,
+    "转写视频时长应在60分钟以内。",
+  );
+  requireValue(text(video.title, 500, true) && text(video.part, 500, true), "标题格式异常。");
+  requireValue(
+    payload.asr_version === "sensevoice-int8-1.12.20-vad-04-12-cues-v2",
+    "转写模型版本异常。",
+  );
+  requireValue(
+    typeof payload.client_version === "string" &&
+      /^\d{1,3}(?:\.\d{1,3}){2,3}$/.test(payload.client_version),
+    "客户端版本异常。",
+  );
+  requireValue(
+    Array.isArray(cues) &&
+      cues.length > 0 &&
+      cues.length <= 10000 &&
+      JSON.stringify(cues).length <= 120000,
+    "转写字幕数量或长度异常。",
+  );
+  let previous = -1;
+  for (const [index, cue] of cues.entries()) {
+    exactKeys(cue, ["id", "from", "to", "content"]);
+    requireValue(cue.id === index + 1, "转写字幕编号应连续递增。");
+    requireValue(
+      Number.isFinite(cue.from) &&
+        Number.isFinite(cue.to) &&
+        cue.from >= 0 &&
+        cue.from >= previous &&
+        cue.from < cue.to &&
+        cue.to <= video.duration &&
+        Math.round(cue.from * 1000) / 1000 === cue.from &&
+        Math.round(cue.to * 1000) / 1000 === cue.to,
+      "转写字幕时间轴异常。",
+    );
+    requireValue(
+      text(cue.content, 10000) && cue.content === cue.content.trim(),
+      "转写字幕文本异常。",
+    );
+    previous = cue.from;
+  }
+  requireValue(
+    typeof payload.transcript_sha256 === "string" &&
+      /^[a-f0-9]{64}$/.test(payload.transcript_sha256) &&
+      payloadHash({ video, cues }) === payload.transcript_sha256,
+    "转写字幕指纹不匹配。",
+  );
+  requireValue(
+    typeof idempotencyKey === "string" &&
+      /^[a-f0-9]{64}$/.test(idempotencyKey) &&
+      payloadHash(payload) === idempotencyKey,
+    "Idempotency-Key 应为请求体的 canonical JSON SHA-256。",
+  );
+  return `${video.bvid}:p${video.page}:${video.cid}:${payload.asr_version}:${payload.transcript_sha256}`;
 }

@@ -10,6 +10,7 @@ export const defaults = {
   sharedRead: false,
   sharedUpload: false,
   autoUpload: false,
+  asrUpload: false,
   apiKey: "test-only-placeholder",
 };
 export const video = { ...ref, cid: 34253507696, duration: 100, title: "合成测试视频", part: "P1" };
@@ -35,6 +36,22 @@ export const labels = (ctx) => ({
     },
   ],
 });
+// Synthetic model wire response; cache fixtures continue using the internal JSON labels above.
+export const pipeOutput = "2|3|测试品牌|赞助声明、优惠与购买引导|0.98";
+export const jsonOutput = JSON.stringify({
+  topic: "合成测试视频",
+  blocks: [
+    {
+      start: 2,
+      end: 3,
+      type: "ad",
+      subject: "测试品牌",
+      reason: "赞助声明、优惠与购买引导",
+      confidence: 0.98,
+    },
+  ],
+});
+export const jsonZeroOutput = JSON.stringify({ topic: "合成正文", blocks: [] });
 export const usage = {
   prompt_tokens: 1000,
   completion_tokens: 100,

@@ -11,3 +11,6 @@ coverage/
 package-lock.json
 .env
 .env.*
+extension/asr/vendor/
+prompt/data/
+prompt/runs/

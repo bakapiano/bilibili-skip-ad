@@ -17,10 +17,10 @@
         this.remove(wrap, entry);
       }
     }
-    sync(record, video) {
+    sync(record, video, segments = record?.segments || []) {
       const player = video?.closest(".bpx-player-container");
       const targets =
-        record && record.segments.length && player
+        record && segments.length && player
           ? Array.from(
               player.querySelectorAll(
                 ".bpx-player-progress-schedule-wrap,.bpx-player-shadow-progress-schedule-wrap",
@@ -50,13 +50,14 @@
           entry = { layer, previousPosition, positionChanged, token: "" };
           this.layers.set(wrap, entry);
         }
-        const token = `${record.key}:${record.createdAt}`;
+        // A settings/preview change can alter the visible subset of the same record.
+        const token = JSON.stringify([record.key, record.createdAt, segments]);
         if (entry.token === token) {
           continue;
         }
         entry.token = token;
         entry.layer.replaceChildren();
-        for (const segment of record.segments) {
+        for (const segment of segments) {
           const marker = this.document.createElement("span");
           marker.className = "biliskip-native-marker";
           marker.dataset.start = String(segment.start);

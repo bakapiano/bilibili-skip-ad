@@ -1,7 +1,34 @@
 import { sharedOrigin } from "./lib/core.js";
+import { AsrModelCache } from "./lib/asr-model.js";
+import { bindModelSettings } from "./lib/model-settings.js";
+import { modelSource } from "./lib/asr-config.js";
 const $ = (id) => document.getElementById(id);
 let cache = [];
+let cachePage = 1;
+let cachePageSize = 10;
+const CACHE_PAGE_SIZES = new Set([10, 20, 50]);
 let current = {};
+const modelCache = new AsrModelCache();
+async function modelPermission(id) {
+  const source = modelSource(id);
+  if (!source) {
+    throw new Error("请选择内置模型下载源。");
+  }
+  if (!source.origins.length || (await modelCache.status()).cached) {
+    return;
+  }
+  const permission = { origins: source.origins };
+  if (
+    !(await chrome.permissions.contains(permission)) &&
+    !(await chrome.permissions.request(permission))
+  ) {
+    throw new Error("请授权所选下载源的域名后重试，或选择BiliSkip本站。");
+  }
+}
+const stopModelSettings = bindModelSettings(document, modelCache, {
+  beforeDownload: modelPermission,
+});
+window.addEventListener("pagehide", stopModelSettings, { once: true });
 async function call(message) {
   const result = await chrome.runtime.sendMessage(message);
   if (!result?.ok) {
@@ -22,15 +49,21 @@ function showSettings(settings) {
     ["shared-read", "sharedRead"],
     ["shared-upload", "sharedUpload"],
     ["auto-upload", "autoUpload"],
+    ["asr-enabled", "asrEnabled"],
+    ["asr-upload", "asrUpload"],
+    ["short-exempt", "shortVideoExempt"],
   ]) {
     $(id).checked = settings[field];
   }
   updateUploadControls();
   $("threshold").value = settings.confidenceThreshold;
+  $("asr-concurrency").value = settings.asrConcurrency;
+  $("model-source").value = settings.asrModelSource;
+  $("short-minutes").value = settings.shortVideoMinutes;
   $("shared-url").value = settings.sharedBaseUrl;
   $("key-status").textContent = settings.hasKey
     ? "状态：已配置个人 Key。输入框留空会保留当前值。"
-    : "状态：等待配置个人 Key。";
+    : "状态：缓存模式，可直接读取本地及共享广告标记。";
   $("shared-token").placeholder = settings.hasSharedToken
     ? "共享令牌已配置，留空保留"
     : "可选，与 DeepSeek Key 独立";
@@ -45,6 +78,12 @@ function readForm() {
     sharedRead: $("shared-read").checked,
     sharedUpload: $("shared-upload").checked,
     autoUpload: $("auto-upload").checked,
+    asrEnabled: $("asr-enabled").checked,
+    asrUpload: $("asr-upload").checked,
+    asrConcurrency: Number($("asr-concurrency").value),
+    asrModelSource: $("model-source").value,
+    shortVideoExempt: $("short-exempt").checked,
+    shortVideoMinutes: Number($("short-minutes").value),
   };
 }
 function updateUploadControls() {
@@ -59,7 +98,8 @@ $("settings-form").addEventListener("submit", async (event) => {
   $("save").disabled = true;
   try {
     const settings = readForm();
-    if (settings.sharedRead || settings.sharedUpload) {
+    await modelPermission(settings.asrModelSource);
+    if (settings.sharedRead || settings.sharedUpload || settings.asrUpload) {
       if (!settings.sharedBaseUrl) {
         throw new Error("请填写共享服务域名。");
       }
@@ -106,6 +146,16 @@ async function refreshCache() {
     box.append(number, title);
     $("stats").append(box);
   }
+  renderCache();
+}
+function renderCache() {
+  const pages = Math.ceil(cache.length / cachePageSize);
+  cachePage = Math.max(1, Math.min(cachePage, pages || 1));
+  $("cache-page-status").textContent =
+    `第 ${pages ? cachePage : 0} / ${pages} 页 · 共 ${cache.length} 条`;
+  $("cache-page-size").value = String(cachePageSize);
+  $("cache-page-prev").disabled = cachePage <= 1;
+  $("cache-page-next").disabled = cachePage >= pages;
   $("cache-list").replaceChildren();
   if (!cache.length) {
     const empty = document.createElement("p");
@@ -113,7 +163,7 @@ async function refreshCache() {
     empty.textContent = "本地数据库已就绪，等待第一条视频标记。";
     $("cache-list").append(empty);
   }
-  for (const record of cache) {
+  for (const record of cache.slice((cachePage - 1) * cachePageSize, cachePage * cachePageSize)) {
     const row = document.createElement("article");
     row.className = "cache-row";
     const info = document.createElement("div");
@@ -150,6 +200,23 @@ async function refreshCache() {
     $("cache-list").append(row);
   }
 }
+for (const [id, delta] of [
+  ["cache-page-prev", -1],
+  ["cache-page-next", 1],
+]) {
+  $(id).addEventListener("click", (event) => {
+    if (event.isTrusted) {
+      cachePage += delta;
+      renderCache();
+    }
+  });
+}
+$("cache-page-size").addEventListener("change", () => {
+  const size = Number($("cache-page-size").value);
+  cachePageSize = CACHE_PAGE_SIZES.has(size) ? size : 10;
+  cachePage = 1;
+  renderCache();
+});
 $("refresh-cache").addEventListener("click", () =>
   refreshCache().catch((error) => notice(error.message, true)),
 );

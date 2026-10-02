@@ -51,6 +51,9 @@
       );
     },
     subtitleLabel(source) {
+      if (source?.startsWith("local-asr:")) {
+        return "字幕：本机 SenseVoice 语音转写";
+      }
       if (typeof source !== "string" || !source.startsWith("bilibili:")) {
         return "";
       }

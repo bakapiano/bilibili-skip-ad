@@ -1,5 +1,18 @@
 # 线上部署记录与操作说明
 
+## 2026-10-02 转写接口与v6上线
+
+当前release：`20261002-225017-691b2510389d`，通过`server/deploy-api.ps1`和`server/deploy/api.sh`上线。
+新增`POST /v1/transcripts`（512KiB上限、哈希校验、幂等回执、独立待核验表），
+广告提交与转写提交共用每IP每1000ms一次的限流。新增`ad-cues-v6-json`，保留v1–v5。
+部署前备份`/srv/biliskipad/data/backups/pre-20261002-225017-691b2510389d.sqlite`，完整性检查通过，
+原515条广告记录逐条核对保持原样。首页与公开ZIP保留原内容，隐私页增加独立转写上传开关和完整文本收集说明。
+
+公网实测：航母视频的已归档真实ASR字幕213句，首次提交201、限流429、间隔后重复提交200并复用回执。
+回执`39d45d9a-492a-4ec0-b204-d861fd0df634`；`GET /v1/transcripts`返回405，CORS预检204，健康检查200。
+记录：`.tmp/transcript-api-2026-10-02.json`。随后发布两个真实v6广告标记作为MC／航母回归及免Key审核演示，
+明细位于`.tmp/release019-demo-cache.json`。
+
 ## 目标机器
 
 - 服务域名：`biliskipad.bakapiano.com`
@@ -34,22 +47,56 @@ Chrome 扩展
 
 ## 路径
 
-| 路径                                     | 内容                             |
-| ---------------------------------------- | -------------------------------- |
-| `/srv/biliskipad/releases/<release-id>/` | 独立版本的运行代码               |
-| `/srv/biliskipad/current`                | 当前版本符号链接                 |
-| `/srv/biliskipad/current/site/`          | 官网静态文件与扩展 ZIP 下载      |
-| `/srv/biliskipad/compose.yaml`           | 当前 Compose 配置                |
-| `/srv/biliskipad/service.env`            | 可选共享服务令牌等私密运行配置   |
-| `/srv/biliskipad/data/`                  | 持久化 SQLite 文件与 WAL         |
-| `/srv/biliskipad/backups/<release-id>/`  | 升级前 Compose 和 Nginx 配置备份 |
-| `/etc/nginx/conf.d/biliskipad.conf`      | 本服务的独立虚拟主机             |
-| `/etc/biliskipad/tls/`                   | 本域名证书和私钥                 |
-| `/var/lib/biliskipad/acme/`              | HTTP-01 验证目录                 |
+| 路径                                     | 内容                                |
+| ---------------------------------------- | ----------------------------------- |
+| `/srv/biliskipad/releases/<release-id>/` | 独立版本的运行代码                  |
+| `/srv/biliskipad/current`                | 当前版本符号链接                    |
+| `/srv/biliskipad/current/site/`          | 官网静态文件与扩展 ZIP 下载         |
+| `/srv/biliskipad/compose.yaml`           | 当前 Compose 配置                   |
+| `/srv/biliskipad/service.env`            | 可选共享服务令牌等私密运行配置      |
+| `/srv/biliskipad/data/`                  | 持久化 SQLite 文件与 WAL            |
+| `/srv/biliskipad/models/`                | 持久化语音模型与许可，Nginx直接读取 |
+| `/srv/biliskipad/asr/`                   | 油猴SRI运行时资源、VAD/词表与许可   |
+| `/srv/biliskipad/backups/<release-id>/`  | 升级前 Compose 和 Nginx 配置备份    |
+| `/etc/nginx/conf.d/biliskipad.conf`      | 本服务的独立虚拟主机                |
+| `/etc/biliskipad/tls/`                   | 本域名证书和私钥                    |
+| `/var/lib/biliskipad/acme/`              | HTTP-01 验证目录                    |
 
 配置备份与数据库备份分别管理。数据库备份采用 SQLite 一致性快照，并按业务留存策略保管；升级前涉及数据库结构变更时应先完成快照。
 
 ## 从 Windows 部署
+
+### 官网与API单独部署
+
+`powershell -NoProfile -File server/deploy-site.ps1` 会先运行完整检查，从当前线上release读取
+已发布ZIP版本，使用 `build-site.js --site-only <version>` 构建站点，保留现有下载包。
+部署覆盖范围固定为三个API模块、本站静态文件和Nginx模板；复制旧release后覆盖，
+备份SQLite、逐条核对已有记录、原子切换并检查页面/API健康，失败时恢复上个release。
+`server/deploy.ps1` 仍用于连同客户端ZIP的完整发布。
+
+2026-10-02后续按用户要求撤回列表页及列表API。当前源码移除`results.html`、`results.js`、
+`/v1/results`及分页查询逻辑，保留蓝白设计、导航图标、示例视频和原共享API。
+`deploy/site.sh`在新release中将两份已退役页面文件移到本次备份目录，旧release完整保留，
+并验证三个页面地址与列表接口均返回404；原有数据库与公开ZIP逐项核对后保留。
+
+撤回于2026-10-02 09:42完成，release `20261002-094222-397c651d43df`。
+原有215条记录逐条比对变更/缺失0条；快照
+`/srv/biliskipad/data/backups/pre-site-20261002-094222-397c651d43df.sqlite`，
+SHA-256 `9438d0d945cf4f86a2c236f92b1dc12cad602c2893586d4eb075b8ba9522effc`。
+两份退役页面移动到 `/srv/biliskipad/backups/site-20261002-094222-397c651d43df/`，
+旧release保留完整版本。首次部署遇到Nginx平滑重载的旧路由窗口而自动回滚，
+增加有界等待后重试通过。203项测试通过，公开ZIP哈希保持原值。
+部署与公网验证记录位于 `.tmp/results-retired-20261002/`。
+
+2026-10-02 09:18首次上线release `20261002-091803-2c36455ba357`（列表功能后续撤回）：
+
+- 官网浅蓝/白色主题、蓝色网站图标、五项导航图标；示例区增加原视频与167秒起点链接，展示真实转转区间166.988–202.480秒、评分0.98及理由。
+- `/results.html`、`/results.js`、`GET /v1/results`上线；支持10/20/50条分页及50%保护筛选。
+- 快照：`/srv/biliskipad/data/backups/pre-site-20261002-091803-2c36455ba357.sqlite`，214条记录，SHA-256 `cfc79e527c150a142073d088115d6b92221f634fa27acdaa73488dc2083053fd`，部署后原记录变更/缺失0条。
+- 公开ZIP保留0.1.6及原SHA-256 `e906dc738cefc9ffc8a40f4af346532a1d616210ad1de9e08ad8df8d0b99ecda`；模型和WASM资源静态路由继续保留。
+- 公网验收：214条有效结果、19条50%保护、70条含广告、144条零广告（验收快照）；逐页读取完整、记录ID无重复。
+- 208项回归通过。Playwright检查公网桌面、390px和341px布局、安装切换、示例链接、结果翻页/筛选/展开/刷新恢复通过，页面错误0条。
+- 原始证据：`.tmp/site-results/deploy.log`、`http-report.json`、`live-e2e.json`；截图与详细说明见 [本次验收](../docs/testing/site-results-2026-10-02.md)。
 
 在项目根目录执行：
 
@@ -75,6 +122,59 @@ powershell -NoProfile -File server/deploy.ps1 -ExtensionArchive dist/biliskip-0.
 
 部署失败时尝试恢复上一版本和此前的本服务虚拟主机；数据库目录保持原样。
 每次部署保留旧版本目录，供明确选择回滚目标。
+
+### 2026-10-01 后端单模块兼容升级
+
+当前release为 `20261001-224000-5cd21d32ab06`。此次先核对线上与本地6个后端模块，
+确认差异仅在 `server/validation.js`，随后复制原release并替换该文件。
+复用当前Compose配置、官网、隐私页与下载包，通过原子切换`current`后重建`api`容器。
+部署脚本持有同一`deploy.lock`，失败时恢复旧release；部署前备份SQLite并验证完整性。
+该次限定目标的一次性脚本保存在 `.tmp/deploy-prompt-v5.sh`，执行记录为 `.tmp/prompt-v5-deploy.log`。
+常规全量发布仍使用上面的 `server/deploy.ps1`。
+
+### 语音模型静态部署
+
+主模型存于 `/srv/biliskipad/models/sensevoice-small-int8/`，与release目录及SQLite独立。
+模型URL为 `/models/sensevoice-small-int8/c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51.onnx`。
+使用Nginx精确location直出239,233,841字节，支持单Range，缓存一年且immutable；
+GET/HEAD公开读取，匿名CORS，模型SHA-256在客户端固定校验。
+同目录公开 `LICENSE` 和 `NOTICE.md` 供核对上游来源与模型许可。
+
+```powershell
+powershell -NoProfile -File server/deploy-model.ps1 -ModelFile .tmp/model-release/model.onnx
+```
+
+脚本先验证本地文件大小与哈希、执行全量检查，再通过严格主机密钥校验的SCP上传。
+远端 `server/deploy/model.sh` 再次核对哈希，持有`deploy.lock`，保留原Nginx备份，
+执行`nginx -t`和平滑重载，核对200响应大小、Range与API健康；失败时恢复原配置。
+该流程保留当前API容器、数据库、首页和下载包。
+日常全量部署的Nginx模板包含相同模型路由，继续读取持久模型目录。
+
+2026-10-01 22:57上线，Nginx备份位于
+`/srv/biliskipad/backups/model-20261001-225702/nginx.conf`。
+服务器本地与公网HEAD返回200，Content-Length为239233841，Range校验1024字节通过。
+模型文件SHA-256为 `c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51`。
+原始部署日志 `.tmp/model-deploy.log`。下载流量独立于广告候选提交的每IP每秒一次限流。
+
+### 油猴SRI资源部署
+
+油猴0.1.8.3使用的WASM和VAD/词表由Nginx目录 `/asr/sherpa-onnx-1.12.20/` 提供，
+物理目录 `/srv/biliskipad/asr/sherpa-onnx-1.12.20/` 独立于release和SQLite。
+固定哈希文件名配合`@resource #sha256`，管理器预加载，脚本运行时再次核验。
+完整大小、哈希和验证范围见 [SRI验收记录](../docs/testing/userscript-sri-2026-10-01.md)。
+
+```powershell
+powershell -NoProfile -File server/deploy-asr-resources.ps1
+```
+
+脚本先执行`verify`，按白名单归档二进制与许可，SCP上传后核对归档和文件哈希；
+远端持有部署锁，安装到固定目录，备份Nginx并平滑重载，失败时恢复配置。
+GET/HEAD公开读取、CORS允许、缓存一年immutable、目录索引关闭、符号链接关闭。
+
+2026-10-01 23:42上线，Nginx备份：
+`/srv/biliskipad/backups/asr-resources-20261001-234255/nginx.conf`。
+两份资源服务端和公网浏览器完整哈希均通过，API健康正常；
+原始记录 `.tmp/userscript-sri-deploy.log`、`.tmp/userscript-sri/e2e.json`。
 
 ## 运维命令
 
@@ -112,8 +212,10 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 - `/downloads/biliskip-0.1.4.zip`：与当前扩展源码一致的商店上传包。
 - `/downloads/biliskip-0.1.4.zip.sha256`：下载包校验值。
 - `/v1/` 与 `/healthz`：继续代理到原 Node 服务。
+- `/v1/stats`：公开缓存汇总，首页使用 `/stats.js` 同源读取；统计输出不含 IP、凭据或逐条记录。
 
 官网采用静态 HTML/CSS 与同域资源，Nginx 通过 CSP、内容类型校验头和框架嵌入限制保护页面。版本下载路径随扩展版本构建；CSS 查询参数按内容哈希更新。
+2026-10-01 起仅首页增加同源 `stats.js`，CSP 的脚本和连接允许 `'self'`；安装选项继续由原生 CSS 单选控件切换。
 安装方式切换使用原生单选控件与 CSS，油猴安装按钮链接到 Greasy Fork 的正式脚本页。
 油猴脚本位于第一项并默认选中，Chrome 扩展位于第二项。
 Chrome 面板优先链接到已上架的 Chrome 应用商店条目；ZIP / 源码步骤放在折叠说明中，保留下载和校验值。
@@ -136,3 +238,29 @@ Chrome 面板优先链接到已上架的 Chrome 应用商店条目；ZIP / 源�
 - 2026-09-29：部署版本 `20260929-230248-7041bfc20da8` 将油猴脚本调整为第一项并默认选中，README 安装顺序同步更新。153 项测试通过，公网选项顺序、默认值及 `/healthz` 已复核。
 - 2026-09-29：部署版本 `20260929-230740-a2eb76b405dc` 为油猴和 Chrome 选项加入内嵌 SVG 图标，并调整窄屏间距。153 项测试、真实 Chrome 桌面／窄屏显示及点击图标切换验证通过。
 - 2026-09-30：部署版本 `20260930-163758-afa370c64ac5` 增加 Chrome 商店正式安装入口；首页状态、Chrome 面板和安装步骤同步更新，ZIP 折叠保留。154 项测试及公网首页／隐私页／CSS／下载校验通过，容器为 `healthy`。真实 Chrome 桌面选项切换、ZIP 展开和窄屏宽度 341px 验收通过。
+- 2026-10-01 16:48：部署版本 `20261001-164830-d98dc8a379b6` 上线，兼容提示词 v1、v2-compact、v3-pipe，v3允许空证据列表，新旧缓存继续独立积累。保留每IP每秒最多一次提交。
+- 部署前一致性备份：`/srv/biliskipad/data/backups/pre-016-2026-10-01T08-46-22.601Z-56159f34.sqlite`，71条记录，完整性检查通过。SHA-256：`e55a7cf2ae2faab5b06e070711bcfa692a062df802d2fdbd82d405163d95142d`。备份权限0600、父目录0700。
+- 部署后逐条对比备份：原有71条记录保持原样；验收新增1条来自真实DeepSeek结果的v3广告缓存，总计72条。
+- 首页统计与`/v1/stats`上线：缓存视频70个、去重分P70个、有效记录72条、广告25段、总广告时长1471.209秒（验收快照）。首页“累计节省时间”按该总时长展示，各分P取最新有效结果。
+- 169项检查通过。新增标准ZIP条目写入脚本，保证 Windows PowerShell 中使用 `/` 路径；归档逐文件与源文件比对后部署。
+- 最终 ZIP：`dist/biliskip-0.1.6-chrome-web-store-20261001-164830.zip`，50830字节，SHA-256 `e906dc738cefc9ffc8a40f4af346532a1d616210ad1de9e08ad8df8d0b99ecda`。固定地址与 `/downloads/biliskip-0.1.6.zip` 已同步。
+- 新版公网上传201、查询200、重复上传200，旧版查询200；本地IndexedDB回填后模型调用0次。`.tmp/release-016-e2e-report.json`记录本次真实HTTPS与生产模块集成范围。
+- Playwright验证首页统计、桌面和窄屏、选项切换、隐私页与浏览器下载；截图保存在 `dist/site-stats-0.1.6-desktop.png` 和 `dist/site-stats-0.1.6-mobile.png`。
+- 2026-10-01 22:40（北京时间）：后端兼容升级 `20261001-224000-5cd21d32ab06` 上线。新增 `ad-cues-v4-topic`、`ad-cues-v5-obvious`，保留v1–v3；v3–v5允许空证据列表，版本间缓存独立。限流仍为每IP每1000ms最多一次。
+- 校验模块SHA-256：`5cd21d32ab068e710a0e0dd98e26d040fe6d16667ce6f22f651a884465e93220`；其他运行模块、官网和下载字节保持原样。
+- 部署前一致性备份：`/srv/biliskipad/data/backups/pre-20261001-224000-5cd21d32ab06.sqlite`，158条记录，完整性检查通过；SHA-256 `31634bf63f34592a18bae1f4cf986d2ac18a384057f79e47a1d9a3b1bc4fd590`。部署后逐条比对：原有记录变更/缺失0条。
+- 使用 `BV1pFUDBKE8X` 的真实ASR/DeepSeek结果完成v5公网上传201、读取200、重复提交200；客户端共享回填、本地再次命中、新增模型调用0次。上传1条有效v5记录后总缓存159条。
+- 原v1/v3样本公网页面返回200且响应SHA-256保持一致；v1–v5合法缓存未命中均返回404，未知提示词返回400。
+- 官网、隐私页和固定ZIP前后哈希一致。公开ZIP保持 `0.1.6`、50830字节，SHA-256 `e906dc738cefc9ffc8a40f4af346532a1d616210ad1de9e08ad8df8d0b99ecda`；本地 `0.1.8` 试用包可直接接线上共享服务。
+- 全量184项回归通过；真实HTTPS记录 `.tmp/prompt-v5-online.json`。验收时公开统计为155个视频、159条缓存、109段广告、5043.121秒累计广告时长，统计随新提交变化。
+
+### README徽章与0.1.9后端复验
+
+- 部署版本：`20261003-003914-fce32e9b89c9`，使用`server/deploy-api.ps1`执行API独立部署。前置全量检查321项通过。
+- 新增`GET /v1/badges/videos`、`/v1/badges/segments`、`/v1/badges/saved-time`，提供固定的Shields Endpoint JSON汇总，公共缓存300秒；Nginx沿用`/v1/`路由。
+- 两种部署归档均包含新增的`server/badges.js`；独立部署结束前通过HTTPS核验三个徽章入口。
+- 部署前一致性备份：`/srv/biliskipad/data/backups/pre-20261003-003914-fce32e9b89c9.sqlite`，554条广告记录，完整性检查通过。部署后原有记录变更／缺失0条，转写字幕表保留2条记录。
+- 容器最终为`healthy`，v1–v6兼容检查通过；首页、固定ZIP下载、模型与SRI资源沿用原有文件，公开ZIP仍为0.1.6。
+- 公网统计复验快照（UTC `2026-10-02T16:41:51.469Z`）：534个视频、540个分P、555条有效记录、380段广告、16,788.633秒广告时长。部署后新增提交继续正常入库。
+- 安装量徽章使用Greasy Fork公开累计安装次数；服务器统计继续使用既有缓存数据，客户端数据收集范围保持原样。
+- 本机部署日志：`.tmp/badges-deploy.log`。油猴0.1.9.1产物为`dist/biliskip.user.js`，713,034字节，SHA-256为`2838389ecb9d84b690d4cd2fe5b0a6cddcaa058ce5c588bd2e7b4fca0f15fd77`。

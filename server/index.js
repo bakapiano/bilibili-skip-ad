@@ -47,10 +47,14 @@ if (command === "serve") {
       console.table(store.stats());
     } else if (command === "recent") {
       console.log(JSON.stringify(store.recent(), null, 2));
+    } else if (command === "transcripts") {
+      console.log(JSON.stringify(store.transcriptStats(), null, 2));
     } else if (command === "revoke" && /^[a-f0-9-]{36}$/.test(id || "")) {
       console.log(JSON.stringify({ revoked: store.revoke(id) }));
     } else {
-      console.error("Usage: node server/index.js [serve|stats|recent|revoke <submission-id>]");
+      console.error(
+        "Usage: node server/index.js [serve|stats|recent|transcripts|revoke <submission-id>]",
+      );
       process.exitCode = 1;
     }
   } finally {

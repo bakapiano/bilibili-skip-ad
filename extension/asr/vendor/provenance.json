@@ -1,0 +1,31 @@
+{
+  "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.12.20",
+  "archiveSha256": "b3d47b2dbfef23c09b2fd20dc4eb82b6a07c763c9b0197e92dea736bc981eb5b",
+  "modifications": "ESM exports; VAD offset declarations; runtime initialization wrapper. Models/runtime otherwise from pinned POC artifacts.",
+  "files": {
+    "runtime.js": {
+      "bytes": 95584,
+      "sha256": "2da734ea6d5d44cecc37df5c0b85322475d50e4b8096d5073abe1a8702ce336d"
+    },
+    "sherpa-onnx-asr.js": {
+      "bytes": 39679,
+      "sha256": "b62c3d00b292a01ba4a45ac5e810020f239a7907ad878061dfbceba5eadce7fb"
+    },
+    "sherpa-onnx-vad.js": {
+      "bytes": 7546,
+      "sha256": "a6ce16428131819f1a887b9985e11bbee9ede3f8791477640027d69aa4d3e64f"
+    },
+    "runtime.wasm": {
+      "bytes": 11539169,
+      "sha256": "2fc8dc389b23ad07f0d526b2e7c7c828543956d053db858d73cff192be7589e3"
+    },
+    "support.bin": {
+      "bytes": 959748,
+      "sha256": "aee057370c3af9b75689b0f1194428185d0bb0a63314711a73c7bb5f80aef2de"
+    },
+    "LICENSE": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  }
+}

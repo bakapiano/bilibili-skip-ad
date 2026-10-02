@@ -7,7 +7,7 @@
       name="description"
       content="BiliSkip 是一个 B站植入广告跳过插件。使用字幕和 DeepSeek 识别广告区间，提供进度条标记、自动跳过和共享缓存。"
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f2f7ff" />
     <meta property="og:title" content="BiliSkip — B站植入广告跳过插件" />
     <meta
       property="og:description"
@@ -18,26 +18,48 @@
       content="https://biliskipad.bakapiano.com/assets/auto-skip.png?v={{ASSET_VERSION}}"
     />
     <link rel="canonical" href="https://biliskipad.bakapiano.com/" />
-    <link rel="icon" type="image/png" href="/assets/icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/assets/site-icon.svg" />
     <link rel="stylesheet" href="/site.css?v={{ASSET_VERSION}}" />
+    <script src="/stats.js?v={{ASSET_VERSION}}" defer></script>
     <title>BiliSkip — B站植入广告跳过插件</title>
   </head>
   <body>
     <a class="skip-link" href="#main">跳到正文</a>
     <header class="site-header wrap">
       <a class="brand" href="/" aria-label="BiliSkip 首页"
-        ><img src="/assets/icon.png" width="30" height="30" alt="" /><span>BiliSkip</span
+        ><img src="/assets/site-icon.svg" width="34" height="34" alt="" /><span>BiliSkip</span
         ><span class="version">{{VERSION}}</span></a
       >
       <nav aria-label="主导航">
-        <a href="#install">安装</a><a href="#features">功能</a><a href="/privacy.html">隐私</a
-        ><a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
+        <a href="#install"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5" /></svg
+          >安装</a
+        >
+        <a href="#features"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="2" />
+            <rect x="14" y="3" width="7" height="7" rx="2" />
+            <rect x="3" y="14" width="7" height="7" rx="2" />
+            <rect x="14" y="14" width="7" height="7" rx="2" /></svg
+          >功能</a
+        >
+        <a href="/privacy.html"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
+            <path d="m8 12 3 3 5-6" /></svg
+          >隐私</a
+        >
+        <a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
+          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m8 8-4 4 4 4m8-8 4 4-4 4M14 4l-4 16" /></svg
           >GitHub</a
         >
       </nav>
     </header>
     <main id="main" class="wrap">
       <section class="intro">
+        <p class="eyebrow">BILISKIP / 开源浏览器工具</p>
         <h1>B站植入广告跳过插件</h1>
         <p class="lead">从视频字幕中识别赞助口播等广告片段，在进度条上标记，并按设置自动跳过。</p>
         <p>识别使用你自己的 DeepSeek API Key。已有结果会优先从本地或共享缓存读取。</p>
@@ -52,7 +74,25 @@
             >源代码</a
           >
         </div>
-        <p class="release-note">Chrome 商店已上架，可直接安装；油猴版通过 Greasy Fork 发布。</p>
+        <p class="release-note">
+          本站 ZIP 为 v{{VERSION}}；Chrome 商店与 Greasy Fork 的版本以各自页面为准。
+        </p>
+      </section>
+
+      <section class="cache-statistics" aria-labelledby="cache-statistics-title">
+        <h2 id="cache-statistics-title" class="visually-hidden">共享缓存统计</h2>
+        <dl class="stat-values" aria-live="polite">
+          <div>
+            <dt>已缓存视频</dt>
+            <dd id="stats-videos">—</dd>
+          </div>
+          <div>
+            <dt>累计节省时间</dt>
+            <dd id="stats-saved">—</dd>
+          </div>
+        </dl>
+        <p class="note" id="stats-status">正在读取线上缓存统计…</p>
+        <noscript><p class="note">启用 JavaScript 后可查看实时缓存统计。</p></noscript>
       </section>
 
       <section id="install" class="section install">
@@ -124,7 +164,7 @@
               aria-labelledby="install-chrome-title"
             >
               <h3 id="install-chrome-title">安装 Chrome 扩展</h3>
-              <p class="note">Chrome 120+ · 当前版本 v{{VERSION}}</p>
+              <p class="note">Chrome 120+ · 本站 ZIP v{{VERSION}} · 商店版本以商店页面为准</p>
               <div class="download-row">
                 <a
                   class="download"
@@ -210,6 +250,60 @@
       <section class="screenshots" aria-labelledby="screenshot-title">
         <h2 id="screenshot-title">实际效果</h2>
         <p>金色区间表示广告。Chrome 版通过工具栏弹窗操作，油猴版通过油猴菜单打开面板。</p>
+        <article class="demo-result" aria-labelledby="demo-title">
+          <div class="demo-heading">
+            <span class="result-badge">真实视频识别示例</span
+            ><span class="note">8 分 39 秒 · DeepSeek Flash</span>
+          </div>
+          <h3 id="demo-title">
+            <a
+              href="https://www.bilibili.com/video/BV1pFUDBKE8X/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >【阿三哥的赢学】都怪美国佬 光辉最安全！</a
+            >
+          </h3>
+          <dl class="demo-values">
+            <div>
+              <dt>识别品牌</dt>
+              <dd>转转</dd>
+            </div>
+            <div>
+              <dt>广告区间</dt>
+              <dd>02:46.988 → 03:22.480</dd>
+            </div>
+            <div>
+              <dt>广告时长</dt>
+              <dd>35.492 秒</dd>
+            </div>
+            <div>
+              <dt>模型自评分</dt>
+              <dd>0.98</dd>
+            </div>
+          </dl>
+          <p class="demo-reason">
+            <strong>识别理由</strong>军事讲解转为二手回收平台推广及上门回收引导。
+          </p>
+          <div class="demo-links">
+            <a
+              class="button secondary"
+              href="https://www.bilibili.com/video/BV1pFUDBKE8X/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >打开原视频 <span aria-hidden="true">↗</span></a
+            ><a
+              class="button secondary"
+              href="https://www.bilibili.com/video/BV1pFUDBKE8X/?t=167"
+              target="_blank"
+              rel="noopener noreferrer"
+              >从广告起点播放 <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="note">
+            上方为已保存的真实 ASR
+            字幕识别结果（ad-cues-v5-obvious）；下方截图来自站内字幕实测，边界存在小幅差异。评分用于辅助核对。
+          </p>
+        </article>
         <figure>
           <a href="/assets/auto-skip.png?v={{ASSET_VERSION}}" aria-label="查看自动跳过效果原图"
             ><img
@@ -277,7 +371,7 @@
         </p>
         <h3>共享上传</h3>
         <p>
-          共享查询和自动上传默认开启。新分析结果会先保存本地，再默认上传视频信息、广告标记和有限证据句。设置中可以单独关闭自动上传，也可以关闭全部共享上传。
+          共享查询和自动上传默认开启。新分析结果会先保存本地，再默认上传视频信息和广告标记，旧版还可能附带有限证据句。设置中可以单独关闭自动上传，也可以关闭全部共享上传。
         </p>
         <h3>识别准确度</h3>
         <p>

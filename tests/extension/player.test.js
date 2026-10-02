@@ -166,6 +166,13 @@ function fixture({
   vm.createContext(sandbox);
   vm.runInContext(playerSource, sandbox);
   vm.runInContext(timelineSource, sandbox);
+  const markerCalls = [];
+  // Observe the controller's selected subset; timeline DOM layout is tested separately.
+  const nativeSync = sandbox.BiliSkipTimeline.prototype.sync;
+  sandbox.BiliSkipTimeline.prototype.sync = function (...args) {
+    markerCalls.push(args);
+    return nativeSync.apply(this, args);
+  };
   vm.runInContext(controllerSource, sandbox);
   vm.runInContext(contentSource, sandbox);
   const control = (
@@ -187,10 +194,15 @@ function fixture({
     const state = snapshot();
     const setup = !state.settings.hasKey || !state.settings.consent;
     const actions = {
-      [setup ? "设置 Key 与授权" : state.record ? "重新分析（再次计费）" : "分析当前视频"]: [
-        "analyze",
-        state.busy,
-      ],
+      [setup
+        ? state.settings.sharedRead
+          ? state.asrRequired
+            ? "转写并查询共享缓存"
+            : "查询共享缓存"
+          : "读取本地缓存"
+        : state.record
+          ? "重新分析（再次计费）"
+          : "分析当前视频"]: ["analyze", state.busy],
       读取缓存: ["refresh", state.busy],
       读取线上缓存: ["online", state.busy || !state.settings.sharedRead],
       [state.settings.autoSkip ? "自动跳过：开" : "开启自动跳过"]: ["toggle", state.busy],
@@ -228,6 +240,7 @@ function fixture({
     sandbox,
     control,
     snapshot,
+    markerCalls,
     host: elements.find((e) => e.id === "biliskip-extension-root"),
     button: commandButton,
     tick: (advance = 1000) => {
@@ -333,6 +346,35 @@ test("automatic player honors pause, seeking, confidence and extreme coverage", 
   high.segments[0].end = 90;
   const h = await ready({ record: high, settings: { autoSkip: true } });
   assert.equal(h.video.currentTime, 12);
+});
+
+test("timeline eligibility follows threshold, coverage, preview suppression and short exemption", async () => {
+  const record = sample();
+  record.segments.push({ start: 30, end: 40, confidence: 0.8, brand: "低评分" });
+  const f = await ready({ record });
+  assert.deepEqual(
+    Array.from(f.markerCalls.at(-1)[2], (row) => row.start),
+    [10],
+  );
+  assert.equal(f.snapshot().record.segments.length, 2);
+  f.broadcast({
+    type: "BILISKIP_SETTINGS",
+    settings: { ...f.snapshot().settings, confidenceThreshold: 0.99 },
+  });
+  assert.equal(f.markerCalls.at(-1)[2].length, 0);
+  f.broadcast({
+    type: "BILISKIP_SETTINGS",
+    settings: { ...f.snapshot().settings, confidenceThreshold: 0.9 },
+  });
+  assert.equal(f.markerCalls.at(-1)[2].length, 1);
+  f.button("试听第 1 段边界").click();
+  assert.equal(f.markerCalls.at(-1)[2].length, 0);
+  const protectedRecord = sample();
+  protectedRecord.segments[0].end = 60;
+  const protectedPage = await ready({ record: protectedRecord });
+  assert.equal(protectedPage.markerCalls.at(-1)[2].length, 0);
+  const exempt = await ready({ settings: { shortVideoExempt: true, shortVideoMinutes: 2 } });
+  assert.equal(exempt.markerCalls.at(-1)[2].length, 0);
 });
 test("untrusted popup commands cannot seek or send analysis", async () => {
   const f = await ready();
@@ -512,6 +554,49 @@ test("automatic analysis runs once per route only in visible opted-in pages", as
   f.tick();
   assert.equal(f.requests.filter((r) => r.type === "ANALYZE").length, 1);
   assert.equal(f.requests.find((r) => r.type === "ANALYZE").automatic, true);
+});
+
+test("keyless primary action refreshes shared markers and cached markers still auto-skip", async () => {
+  const f = await ready({
+    settings: { hasKey: false, consent: false, sharedRead: true, autoSkip: true },
+  });
+  assert.equal(f.video.currentTime, 20.05);
+  f.button("查询共享缓存").click();
+  await flush();
+  assert.equal(f.requests.at(-1).type, "GET_PAGE_STATE");
+  assert.equal(f.requests.at(-1).preferShared, true);
+  assert.equal(
+    f.requests.some((request) => ["ANALYZE", "OPEN_OPTIONS"].includes(request.type)),
+    false,
+  );
+});
+
+test("keyless ASR is explicitly requested by the cache action and stays dormant during page polling", async () => {
+  const settings = {
+    hasKey: false,
+    consent: false,
+    sharedRead: true,
+    asrEnabled: true,
+    autoAnalyze: true,
+  };
+  const f = await ready({
+    record: null,
+    settings,
+    handler: async (request) =>
+      request.type === "GET_PAGE_STATE"
+        ? { ok: true, data: { record: null, cueCount: 0, asrRequired: true, settings } }
+        : undefined,
+  });
+  f.tick();
+  assert.equal(f.requests.filter((request) => request.transcribeForCache).length, 0);
+  f.button("转写并查询共享缓存").click();
+  await flush();
+  assert.equal(f.requests.at(-1).type, "GET_PAGE_STATE");
+  assert.equal(f.requests.at(-1).transcribeForCache, true);
+  assert.equal(
+    f.requests.some((request) => ["ANALYZE", "OPEN_OPTIONS"].includes(request.type)),
+    false,
+  );
 });
 test("new result version resets suppression and permits applying the updated marker", async () => {
   const f = await ready();

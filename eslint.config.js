@@ -15,6 +15,9 @@ export default defineConfig([
     "runs/**",
     "dist/**",
     "coverage/**",
+    "extension/asr/vendor/**",
+    "prompt/data/**",
+    "prompt/runs/**",
   ]),
   prettier,
   {
@@ -42,10 +45,25 @@ export default defineConfig([
       "eslint.config.js",
       "scripts/**/*.{js,cjs,mjs}",
       "tests/**/*.{js,cjs,mjs}",
-      "server/**/*.{js,cjs,mjs}",
+      "server/*.{js,cjs,mjs}",
+      "prompt/**/*.{js,cjs,mjs}",
     ],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    name: "biliskip/prompt-lab-browser",
+    files: ["prompt/ui/*.js"],
+    languageOptions: {
+      globals: { ...globals.browser, process: "off", Buffer: "off", global: "off" },
+    },
+  },
+  {
+    name: "biliskip/prompt-browser-e2e",
+    files: ["prompt/tests/browser-e2e.mjs"],
+    languageOptions: {
+      globals: { document: "readonly", innerWidth: "readonly" },
     },
   },
   {
@@ -65,10 +83,19 @@ export default defineConfig([
       "extension/options.js",
       "extension/popup.js",
       "extension/popup-view.js",
+      "extension/offscreen.js",
+      "extension/asr/engine.js",
+      "extension/asr/pool.js",
+      "extension/asr/cues.js",
+      "server/site/stats.js",
     ],
     languageOptions: {
       globals: { ...globals.browser, chrome: "readonly" },
     },
+  },
+  {
+    files: ["extension/asr/worker.js"],
+    languageOptions: { globals: globals.worker },
   },
   {
     name: "biliskip/userscript",
@@ -85,6 +112,7 @@ export default defineConfig([
       "extension/player-core.js",
       "extension/timeline.js",
       "extension/popup-view.js",
+      "server/site/stats.js",
     ],
     languageOptions: { sourceType: "script" },
   },

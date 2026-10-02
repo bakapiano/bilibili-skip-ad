@@ -9,14 +9,18 @@ export const SITE_FILES = [
   "index.html",
   "privacy.html",
   "site.css",
+  "stats.js",
+  "assets/site-icon.svg",
   "assets/ad-markers.png",
   "assets/auto-skip.png",
 ];
-export async function buildSite(outputRoot, archivePath) {
+export async function buildSite(outputRoot, archivePath, { version: selectedVersion } = {}) {
   const manifest = JSON.parse(await readFile(path.join(root, "extension/manifest.json"), "utf8"));
-  const version = manifest.version;
+  const version = selectedVersion || manifest.version;
+  assert.match(version, /^\d+\.\d+\.\d+(?:\.\d+)?$/);
   const stylesheet = await readFile(path.join(root, "server/site/site.css"));
   const assetHash = createHash("sha256").update(stylesheet);
+  assetHash.update(await readFile(path.join(root, "server/site/stats.js")));
   for (const file of SITE_FILES.filter((name) => name.startsWith("assets/"))) {
     assetHash.update(await readFile(path.join(root, "server/site", file)));
   }
@@ -61,7 +65,13 @@ export async function buildSite(outputRoot, archivePath) {
   return { version, assetVersion, files: files.map((file) => `site/${file}`) };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  assert.ok(process.argv[2], "Usage: node scripts/build-site.js <verified-extension.zip>");
-  const result = await buildSite(path.join(root, ".tmp/site-build"), path.resolve(process.argv[2]));
+  assert.ok(
+    process.argv[2],
+    "Usage: node scripts/build-site.js <verified-extension.zip> | --site-only <published-version>",
+  );
+  const result =
+    process.argv[2] === "--site-only"
+      ? await buildSite(path.join(root, ".tmp/site-build"), undefined, { version: process.argv[3] })
+      : await buildSite(path.join(root, ".tmp/site-build"), path.resolve(process.argv[2]));
   console.log(JSON.stringify(result));
 }

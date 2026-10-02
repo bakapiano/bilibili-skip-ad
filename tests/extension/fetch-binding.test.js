@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { BilibiliClient } from "../../extension/lib/bilibili.js";
 import { DeepSeekClient, SharedClient } from "../../extension/lib/providers.js";
 import { MODEL, PROMPT_VERSION } from "../../extension/lib/constants.js";
-import { context, labels, usage, defaults, json } from "./fixtures.js";
+import { context, labels, usage, defaults, json, jsonOutput } from "./fixtures.js";
 
 test("Bilibili native-like fetch retains the global receiver", async () => {
   const client = new BilibiliClient(function () {
@@ -21,7 +21,7 @@ test("DeepSeek native-like fetch retains the global receiver", async () => {
     return Promise.resolve(
       json({
         usage,
-        choices: [{ finish_reason: "stop", message: { content: JSON.stringify(labels(ctx)) } }],
+        choices: [{ finish_reason: "stop", message: { content: jsonOutput } }],
       }),
     );
   });

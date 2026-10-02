@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { AnalysisService } from "../../extension/lib/service.js";
 import { SharedClient } from "../../extension/lib/providers.js";
 import { AppError, cacheKey } from "../../extension/lib/core.js";
+import { PROMPT_VERSION } from "../../extension/lib/constants.js";
 import { context, labels, ref, defaults, database, deferred, json } from "./fixtures.js";
 
 async function fixture(overrides = {}) {
@@ -48,6 +49,26 @@ async function uploadFixture(overrides = {}) {
   const f = await fixture({ shared, settings: async () => settings, ...overrides });
   return { ...f, settings, requests, shared };
 }
+
+test("a prompt upgrade preserves prior records while creating and reusing the new cache", async (t) => {
+  const f = await fixture();
+  t.after(async () => (await f.db.open()).close());
+  const previous = f.service.makeRecord(f.ctx, labels(f.ctx));
+  previous.promptVersion = "ad-cues-v3-pipe";
+  previous.key = previous.key.replace(PROMPT_VERSION, previous.promptVersion);
+  await f.db.put("records", previous);
+  assert.equal((await f.service.prepare(ref)).record, null);
+  assert.equal(f.count.model, 0);
+  const current = await f.service.analyze(ref);
+  assert.equal(current.record.promptVersion, "ad-cues-v6-json");
+  assert.equal(current.record.key, cacheKey(f.ctx));
+  assert.equal(f.count.model, 1);
+  assert.deepEqual(await f.db.get("records", previous.key), previous);
+  assert.equal((await f.db.all("records")).length, 2);
+  assert.equal((await f.service.prepare(ref)).record.source, "local-cache");
+  await f.service.analyze(ref);
+  assert.equal(f.count.model, 1);
+});
 
 test("new analysis automatically uploads once after local save and reuses its receipt", async () => {
   const f = await uploadFixture();
@@ -292,7 +313,7 @@ test("first analysis persists result; reload and non-forced analysis use zero ex
   await db.log({ type: "api-call", route: "unrelated-video" });
   assert.equal((await service.prepare(ref)).metrics.apiCalls, 1);
 });
-test("same-video requests share one in-flight job and another video receives BUSY", async () => {
+test("same-video requests share one in-flight job and model requests stay exclusive", async () => {
   const gate = deferred();
   const started = deferred();
   const ctx = await context();
@@ -315,7 +336,8 @@ test("same-video requests share one in-flight job and another video receives BUS
   gate.resolve();
   await Promise.all([a, b]);
   assert.equal(calls, 1);
-  assert.equal(service.busy, null);
+  assert.equal(service.resources.size, 0);
+  assert.equal(service.inflight.size, 0);
 });
 test("context loads deduplicate independently", async () => {
   const gate = deferred();
@@ -399,6 +421,42 @@ test("shared hit becomes local cache and shared failure allows explicit local an
   assert.match((await failed.service.prepare(ref)).warning, /共享服务/);
   assert.equal((await failed.service.analyze(ref)).record.source, "deepseek");
   assert.equal(failed.count.model, 1);
+});
+
+test("keyless cache mode applies shared and zero-ad records with model consent disabled", async () => {
+  for (const zeroAds of [false, true]) {
+    const ctx = await context();
+    const remote = { ...labels(ctx), ...(zeroAds ? { segments: [] } : {}) };
+    const f = await fixture({
+      settings: async () => ({ ...defaults, apiKey: "", consent: false, sharedRead: true }),
+      shared: {
+        lookup: async () => remote,
+        upload: () => assert.fail("Cache reads keep upload dormant"),
+      },
+    });
+    const result = await f.service.prepare(ref);
+    assert.equal(result.record.source, "shared");
+    assert.equal(result.record.segments.length, zeroAds ? 0 : 1);
+    assert.equal((await f.service.prepare(ref)).record.source, "local-cache");
+    assert.equal(f.count.model, 0);
+    assert.equal((await f.db.stats()).apiCalls, 0);
+  }
+});
+
+test("keyless cache miss and unavailable shared records remain cache-only results", async () => {
+  const f = await fixture({
+    settings: async () => ({ ...defaults, apiKey: "", consent: false, sharedRead: true }),
+  });
+  const miss = await f.service.prepare(ref);
+  assert.equal(miss.record, null);
+  assert.match(miss.notice, /共享缓存暂未收录/);
+  assert.equal(f.count.model, 0);
+  f.service.shared.lookup = async () => ({ ...labels(f.ctx), transcript_sha256: "0".repeat(64) });
+  const invalid = await f.service.prepare(ref);
+  assert.equal(invalid.record, null);
+  assert.match(invalid.warning, /不匹配/);
+  assert.equal((await f.db.all("records")).length, 0);
+  assert.equal((await f.db.stats()).apiCalls, 0);
 });
 test("outbox retries keep idempotency and confirmed submissions are reused", async () => {
   const shared = new SharedClient();

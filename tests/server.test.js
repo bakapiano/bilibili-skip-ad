@@ -8,12 +8,22 @@ import { fileURLToPath } from "node:url";
 import { createCacheServer, MAX_BODY_BYTES } from "../server/app.js";
 import { clientIp, normalizeIp, readConfig } from "../server/config.js";
 import { CacheStore } from "../server/store.js";
+import { statsBadge } from "../server/badges.js";
 import { HttpError, payloadHash, validateCandidate } from "../server/validation.js";
 import { SharedClient } from "../extension/lib/providers.js";
 import { validateLabels } from "../extension/lib/core.js";
 import { MODEL, PROMPT_VERSION } from "../extension/lib/constants.js";
 import { AnalysisService } from "../extension/lib/service.js";
 import { context, labels, database, defaults } from "./extension/fixtures.js";
+
+const SUPPORTED_PROMPTS = [
+  "ad-cues-v1",
+  "ad-cues-v2-compact",
+  "ad-cues-v3-pipe",
+  "ad-cues-v4-topic",
+  "ad-cues-v5-obvious",
+  "ad-cues-v6-json",
+];
 
 async function candidate() {
   const ctx = await context();
@@ -66,6 +76,151 @@ async function fixture(t, options = {}) {
   return { store, clock, origin, post };
 }
 
+test("public stats are aggregate-only, cacheable and independent of private credentials", async (t) => {
+  const app = await fixture(t, { token: "private-test-token" });
+  const response = await fetch(`${app.origin}/v1/stats`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "public, max-age=60");
+  const result = await response.json();
+  assert.deepEqual(result, {
+    schema_version: 1,
+    cached_videos: 0,
+    cached_parts: 0,
+    cached_records: 0,
+    ad_segments: 0,
+    saved_seconds: 0,
+    basis: "latest-active-per-video-part-ad-duration",
+    updated_at: new Date(app.clock.value).toISOString(),
+  });
+  assert.equal(app.store.db.prepare("SELECT COUNT(*) AS count FROM ip_counts").get().count, 0);
+  assert.equal((await fetch(`${app.origin}/v1/stats?ip=anything`)).status, 400);
+  assert.equal((await fetch(`${app.origin}/v1/stats`, { method: "POST" })).status, 405);
+  assert.equal((await fetch(`${app.origin}/v1/stats`, { method: "OPTIONS" })).status, 204);
+});
+
+test("public badges expose only fixed cache aggregates and preserve IP submission counters", async (t) => {
+  const app = await fixture(t, { token: "private-test-token" });
+  const item = await candidate();
+  app.store.save(
+    validateCandidate(item.payload, item.id),
+    item.id,
+    item.payload,
+    "192.0.2.7",
+    app.clock.value,
+  );
+  for (const [metric, label, message] of [
+    ["videos", "缓存视频", "1 个"],
+    ["segments", "广告片段", "1 段"],
+    ["saved-time", "节省时间", "10 秒"],
+  ]) {
+    const response = await fetch(`${app.origin}/v1/badges/${metric}`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "public, max-age=300");
+    assert.deepEqual(await response.json(), {
+      schemaVersion: 1,
+      label,
+      message,
+      color: "3b82f6",
+      cacheSeconds: 300,
+    });
+    assert.equal((await fetch(`${app.origin}/v1/badges/${metric}?url=anything`)).status, 400);
+    assert.equal(
+      (await fetch(`${app.origin}/v1/badges/${metric}`, { method: "POST" })).status,
+      405,
+    );
+    assert.equal(
+      (await fetch(`${app.origin}/v1/badges/${metric}`, { method: "OPTIONS" })).status,
+      204,
+    );
+  }
+  assert.equal((await fetch(`${app.origin}/v1/badges/users`)).status, 404);
+  assert.equal(app.store.db.prepare("SELECT COUNT(*) AS count FROM ip_counts").get().count, 0);
+  assert.equal(app.store.publicStats().cached_records, 1);
+});
+
+test("badge values format zero, count separators and cumulative ad duration", () => {
+  const stats = { cached_videos: 1234, ad_segments: 5678, saved_seconds: 0 };
+  assert.equal(statsBadge("videos", stats).message, "1,234 个");
+  assert.equal(statsBadge("segments", stats).message, "5,678 段");
+  for (const [seconds, message] of [
+    [0, "0 秒"],
+    [59.9, "59 秒"],
+    [90, "1.5 分钟"],
+    [3600, "1.0 小时"],
+    [5400, "1.5 小时"],
+  ]) {
+    assert.equal(statsBadge("saved-time", { ...stats, saved_seconds: seconds }).message, message);
+  }
+  assert.throws(() => statsBadge("__proto__", stats));
+});
+
+test("retired results API returns 404 while shared-cache stats and stored results remain available", async (t) => {
+  const app = await fixture(t);
+  const item = await candidate();
+  assert.equal((await app.post(item.payload)).status, 201);
+  for (const method of ["GET", "POST", "OPTIONS"]) {
+    for (const path of ["/v1/results", "/v1/results?page=1&filter=protected"]) {
+      const response = await fetch(`${app.origin}${path}`, { method });
+      assert.equal(response.status, 404);
+      assert.equal((await response.json()).error.code, "NOT_FOUND");
+    }
+  }
+  assert.equal((await fetch(`${app.origin}/v1/stats`)).status, 200);
+  assert.equal((await fetch(`${app.origin}/v1/segments?${query(item.ctx)}`)).status, 200);
+  assert.equal(app.store.publicStats().cached_records, 1);
+});
+
+test("stats deduplicate versions and replaced media, count parts, zero ads and revoked rows", async (t) => {
+  const app = await fixture(t);
+  const item = await candidate();
+  let number = 0;
+  const add = (changes = {}) => {
+    const payload = structuredClone(item.payload);
+    payload.video = { ...payload.video, ...changes.video };
+    payload.prompt_version = changes.version || PROMPT_VERSION;
+    payload.labels.video_key = `${payload.video.bvid}:p${payload.video.page}:${payload.video.cid}`;
+    payload.labels.summary = `Synthetic aggregate fixture ${++number}`;
+    if (changes.zeroAds) {
+      payload.labels.segments = [];
+      payload.segments = [];
+    } else if (changes.end) {
+      payload.segments[0].end = changes.end;
+    }
+    const requestHash = payloadHash(payload);
+    const key = validateCandidate(payload, requestHash);
+    app.clock.value += 1001;
+    return app.store.save(key, requestHash, payload, "192.0.2.5", app.clock.value).receipt
+      .submission_id;
+  };
+  add({ version: "ad-cues-v1" });
+  assert.equal(app.store.publicStats(app.clock.value).saved_seconds, 10);
+  add({ version: "ad-cues-v2-compact", end: 25.125 });
+  assert.equal(app.store.publicStats(app.clock.value).saved_seconds, 15.125);
+  add({ video: { cid: 987654321 }, end: 30 });
+  assert.equal(app.store.publicStats(app.clock.value).saved_seconds, 20);
+  add({ video: { page: 2, cid: 987654322 } });
+  const otherId = add({ video: { bvid: "BV191Yr6bEYy" }, zeroAds: true });
+  const stats = app.store.publicStats(app.clock.value);
+  assert.deepEqual(
+    [
+      stats.cached_videos,
+      stats.cached_parts,
+      stats.cached_records,
+      stats.ad_segments,
+      stats.saved_seconds,
+    ],
+    [2, 3, 5, 2, 30],
+  );
+  assert.strictEqual(app.store.publicStats(app.clock.value + 59999), stats);
+  assert.notStrictEqual(app.store.publicStats(app.clock.value + 60000), stats);
+  const zeroId = add({ zeroAds: true });
+  assert.equal(app.store.publicStats(app.clock.value).saved_seconds, 10);
+  app.store.revoke(zeroId);
+  assert.equal(app.store.publicStats(app.clock.value).saved_seconds, 30);
+  app.store.revoke(otherId);
+  assert.equal(app.store.publicStats(app.clock.value).cached_videos, 1);
+});
+
 test("shared-cache HTTP round trip uses the real extension uploader, lookup and IndexedDB service", async (t) => {
   const app = await fixture(t);
   const item = await candidate();
@@ -101,6 +256,89 @@ test("shared-cache HTTP round trip uses the real extension uploader, lookup and 
   assert.equal((await service.prepare(item.ctx.video)).record.source, "shared");
   assert.equal((await service.prepare(item.ctx.video)).record.source, "local-cache");
   assert.equal((await db.stats()).apiCalls, 0);
+});
+
+test("all prompt generations coexist under separate shared cache identities", async (t) => {
+  const app = await fixture(t);
+  const item = await candidate();
+  for (const version of SUPPORTED_PROMPTS) {
+    const payload = structuredClone(item.payload);
+    payload.prompt_version = version;
+    payload.labels.summary = version;
+    assert.equal((await app.post(payload)).status, 201);
+    app.clock.value += 1001;
+  }
+  for (const version of SUPPORTED_PROMPTS) {
+    const params = query(item.ctx);
+    params.set("prompt_version", version);
+    const response = await fetch(`${app.origin}/v1/segments?${params}`);
+    assert.equal(response.status, 200);
+    const value = await response.json();
+    assert.equal(value.prompt_version, version);
+    assert.equal(value.labels.summary, version);
+  }
+  const invalid = query(item.ctx);
+  invalid.set("prompt_version", "unreviewed-version");
+  assert.equal((await fetch(`${app.origin}/v1/segments?${invalid}`)).status, 400);
+});
+
+test("pipe records allow explicit empty evidence and preserve it through shared round trips", async (t) => {
+  const app = await fixture(t);
+  const item = await candidate();
+  item.payload.labels.segments[0].evidence_ids = [];
+  item.payload.segments[0].evidence_ids = [];
+  item.payload.segments[0].evidence = [];
+  for (const version of ["ad-cues-v1", "ad-cues-v2-compact"]) {
+    const legacy = structuredClone(item.payload);
+    legacy.prompt_version = version;
+    assert.throws(() => validateCandidate(legacy, payloadHash(legacy)), HttpError);
+  }
+  for (const version of [
+    "ad-cues-v3-pipe",
+    "ad-cues-v4-topic",
+    "ad-cues-v5-obvious",
+    "ad-cues-v6-json",
+  ]) {
+    const payload = structuredClone(item.payload);
+    payload.prompt_version = version;
+    assert.equal((await app.post(payload)).status, 201);
+    const params = query(item.ctx);
+    params.set("prompt_version", version);
+    const response = await fetch(`${app.origin}/v1/segments?${params}`);
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.prompt_version, version);
+    assert.deepEqual(result.labels.segments[0].evidence_ids, []);
+    assert.deepEqual(validateLabels(item.ctx, result.labels).segments[0].evidence, []);
+    app.clock.value += 1001;
+  }
+});
+
+test("v5 zero-ad records round trip, remain version-isolated and preserve idempotency", async (t) => {
+  const app = await fixture(t);
+  const item = await candidate();
+  const payload = structuredClone(item.payload);
+  payload.prompt_version = "ad-cues-v5-obvious";
+  payload.labels.segments = [];
+  payload.segments = [];
+  const first = await app.post(payload);
+  assert.equal(first.status, 201);
+  const receipt = await first.json();
+  const params = query(item.ctx);
+  params.set("prompt_version", "ad-cues-v5-obvious");
+  const response = await fetch(`${app.origin}/v1/segments?${params}`);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).labels.segments, []);
+  params.set("prompt_version", "ad-cues-v3-pipe");
+  assert.equal((await fetch(`${app.origin}/v1/segments?${params}`)).status, 404);
+  app.clock.value += 1001;
+  const duplicate = await app.post(payload);
+  assert.equal(duplicate.status, 200);
+  assert.deepEqual(await duplicate.json(), receipt);
+  const stats = app.store.publicStats(app.clock.value);
+  assert.equal(stats.cached_records, 1);
+  assert.equal(stats.cached_videos, 1);
+  assert.equal(stats.saved_seconds, 0);
 });
 
 test("one IP gets one admitted submission per sliding 1000ms, including duplicate submissions", async (t) => {
@@ -370,10 +608,11 @@ async function chunked(origin, body, finish = true) {
 }
 
 test("streamed oversized bodies and stalled uploads are bounded", async (t) => {
-  const app = await fixture(t, { bodyTimeoutMs: 50 });
+  // Isolate size rejection from the deliberately short timeout used by the stalled-body case.
+  const app = await fixture(t);
   assert.equal((await chunked(app.origin, "x".repeat(MAX_BODY_BYTES + 1))).status, 413);
-  app.clock.value += 1000;
-  assert.equal((await chunked(app.origin, "{", false)).status, 408);
+  const stalled = await fixture(t, { bodyTimeoutMs: 50 });
+  assert.equal((await chunked(stalled.origin, "{", false)).status, 408);
 });
 
 test("SQLite preserves limits and cached records across restart and midnight", async () => {

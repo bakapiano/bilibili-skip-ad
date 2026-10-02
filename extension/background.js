@@ -12,9 +12,11 @@ import { BilibiliClient } from "./lib/bilibili.js";
 import { LocalDB } from "./lib/db.js";
 import { DeepSeekClient, SharedClient } from "./lib/providers.js";
 import { AnalysisService } from "./lib/service.js";
+import { OffscreenAsr } from "./lib/offscreen-asr.js";
 import { publicSettings, trustedUI, verifyPage, verifyPageSource } from "./lib/messaging.js";
 
 const db = new LocalDB();
+let asr;
 const subscribers = new Map();
 const ready = (async () => {
   await chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
@@ -52,6 +54,12 @@ const service = new AnalysisService({
   db,
   bili: new BilibiliClient(),
   model: new DeepSeekClient(),
+  asr: {
+    transcribe(...args) {
+      asr ||= new OffscreenAsr();
+      return asr.transcribe(...args);
+    },
+  },
   settings: fullSettings,
   shared: new SharedClient(fetch, (origin) => chrome.permissions.contains({ origins: [origin] })),
   notify(route, payload) {
@@ -108,7 +116,7 @@ async function handle(message, sender) {
     assert(ui, "SENDER", "设置仅供扩展页面修改。");
     const current = await fullSettings();
     const settings = validateSettings({ ...current, ...message.settings });
-    if (settings.sharedRead || settings.sharedUpload) {
+    if (settings.sharedRead || settings.sharedUpload || settings.asrUpload) {
       assert(
         await chrome.permissions.contains({ origins: [`${settings.sharedBaseUrl}/*`] }),
         "SHARED_PERMISSION",
@@ -150,7 +158,6 @@ async function handle(message, sender) {
     assert(ui, "SENDER", "缓存管理仅供扩展页面读取。");
     const records = (await db.all("records"))
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 100)
       .map((row) => publicRecord(row));
     return { records, stats: await db.stats(), events: (await db.all("events")).slice(-30) };
   }
@@ -185,9 +192,17 @@ async function handle(message, sender) {
       "MESSAGE",
       "线上读取参数异常。",
     );
+    assert(
+      message.transcribeForCache === undefined || typeof message.transcribeForCache === "boolean",
+      "MESSAGE",
+      "缓存转写参数异常。",
+    );
     try {
       return {
-        ...(await service.prepare(ref, { preferShared: message.preferShared === true })),
+        ...(await service.prepare(ref, {
+          preferShared: message.preferShared === true,
+          transcribeForCache: message.transcribeForCache === true,
+        })),
         settings: publicSettings(await fullSettings()),
       };
     } catch (error) {
@@ -235,6 +250,9 @@ async function handle(message, sender) {
   throw new AppError("MESSAGE", "请求类型异常。");
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type?.startsWith("ASR_")) {
+    return false;
+  }
   handle(message, sender).then(
     (data) => sendResponse({ ok: true, data }),
     (error) => sendResponse({ ok: false, error: safeError(error) }),
