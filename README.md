@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://biliskipad.bakapiano.com/">
-    <img src="extension/icons/icon-128.png" width="96" height="96" alt="BiliSkip 图标" />
+    <img src="store/icons/biliskip-tv-coin.svg" width="96" height="96" alt="BiliSkip 蓝色电视与广告屏蔽图标" />
   </a>
 </p>
 

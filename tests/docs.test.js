@@ -42,7 +42,8 @@ test("root Markdown stays minimal and maintained documentation links resolve", a
 
 test("README badges use verified channels and disclose install and ad-duration accounting", async () => {
   const readme = await readFile(path.join(root, "README.md"), "utf8");
-  assert.match(readme, /extension\/icons\/icon-128\.png/);
+  assert.match(readme, /store\/icons\/biliskip-tv-coin\.svg/);
+  assert.ok((await stat(path.join(root, "store/icons/biliskip-tv-coin.svg"))).isFile());
   assert.match(readme, /server\/site\/assets\/ad-markers\.png/);
   assert.match(readme, /img\.shields\.io\/greasyfork\/dt\/597956/);
   for (const metric of ["videos", "segments", "saved-time"]) {

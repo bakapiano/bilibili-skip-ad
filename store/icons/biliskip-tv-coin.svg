@@ -1,0 +1,117 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="256"
+  height="256"
+  viewBox="0 0 256 256"
+  fill="none"
+  role="img"
+  aria-labelledby="biliskip-icon-title biliskip-icon-description"
+>
+  <title id="biliskip-icon-title">BiliSkip</title>
+  <desc id="biliskip-icon-description">
+    蓝色双天线电视，屏幕内有白色播放键，右下角为带蓝色禁止标记的金色硬币。
+  </desc>
+  <!--
+    TV silhouette adapted from Lucide / Feather tv; composition and colors by BiliSkip.
+    Source: https://github.com/lucide-icons/lucide/blob/main/icons/tv.svg
+
+    ISC License
+    Copyright (c) 2026 Lucide Icons and Contributors
+
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted, provided that the above
+    copyright notice and this permission notice appear in all copies.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+    The MIT License (MIT)
+    Copyright (c) 2013-present Cole Bemis
+    Copyright (c) 2026 bakapiano (BiliSkip composition and modifications)
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+  -->
+  <defs>
+    <mask
+      id="biliskip-tv-cutout"
+      x="0"
+      y="0"
+      width="256"
+      height="256"
+      maskUnits="userSpaceOnUse"
+      maskContentUnits="userSpaceOnUse"
+      style="mask-type: luminance"
+    >
+      <rect width="256" height="256" fill="#fff" />
+      <circle cx="195" cy="197" r="62" fill="#000" />
+    </mask>
+  </defs>
+  <g id="television" mask="url(#biliskip-tv-cutout)">
+    <path
+      d="M78 28L122 68L165 28"
+      stroke="#079ed1"
+      stroke-width="13"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M66 215L59 231M177 215L184 231"
+      stroke="#079ed1"
+      stroke-width="12"
+      stroke-linecap="round"
+    />
+    <rect x="19" y="66" width="208" height="155" rx="28" fill="#079ed1" />
+    <rect
+      x="35"
+      y="82"
+      width="176"
+      height="123"
+      rx="17"
+      stroke="#92ddf3"
+      stroke-width="5"
+    />
+    <path
+      d="M94 109L150 143L94 177V109Z"
+      fill="#fff"
+      stroke="#fff"
+      stroke-width="4"
+      stroke-linejoin="round"
+    />
+  </g>
+  <g id="coin">
+    <circle cx="195" cy="197" r="43" fill="#f6a817" />
+    <circle cx="195" cy="197" r="34" stroke="#ffcf68" stroke-width="3.5" />
+    <path
+      d="M206 180C202 176 187 175 185 184C182 197 207 192 206 205C205 216 188 217 182 211M195 171V222"
+      stroke="#fff"
+      stroke-width="5.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+  <g id="block" stroke="#079ed1" stroke-linecap="round">
+    <circle cx="195" cy="197" r="52" stroke-width="9" />
+    <path d="M224 155L166 239" stroke-width="11" />
+  </g>
+</svg>
