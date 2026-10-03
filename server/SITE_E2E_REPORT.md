@@ -83,3 +83,12 @@
 - 点击Chrome选项、展开ZIP安装并真实下载成功；哈希与本地最终包和官网两个下载地址一致。
 - 返回油猴选项、访问隐私页再回首页正常，统计再次加载。页面仅包含一个外部同源脚本。
 - 截图：`dist/site-stats-0.1.6-desktop.png`、`dist/site-stats-0.1.6-mobile.png`。169项检查通过。
+
+## 官网ZIP更新到0.1.9（2026-10-03）
+
+- 发布版本`20261003-215743-016fbdab9cc5`；首页和隐私页由当前模板重新构建，下载版本更新为0.1.9。
+- 固定地址`/downloads/biliskip.zip`与版本地址`/downloads/biliskip-0.1.9.zip`均为3,932,596字节，根目录`manifest.json`版本0.1.9，共51个扩展文件。
+- SHA-256为`0aa49c3301162f2aedfeab9ff3fdbb425a7aaab0a184df0c070ce82976aec20f`；两份ZIP及其校验文件保持一致。
+- 老版`/downloads/biliskip-0.1.6.zip`及校验值保留，数据库728条广告记录与31条转写记录逐条比对保持原样。
+- 321项自动化检查通过，容器最终为`healthy`。本轮以公网HTTP下载、ZIP逐文件比对及数据库只读核验为验收范围。
+- 验收脚本`.tmp/verify-site-zip019.ps1`，原始报告`.tmp/site-zip019-online.json`，部署日志`.tmp/site-zip019-deploy.log`。

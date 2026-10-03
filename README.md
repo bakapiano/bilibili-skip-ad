@@ -30,7 +30,7 @@
 | [Greasy Fork 安装](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87) | [Chrome 应用商店](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk) | [下载 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip.zip) · [校验值](https://biliskipad.bakapiano.com/downloads/biliskip.zip.sha256) |
 | Tampermonkey 5.4+，适用于 Chrome / Edge                                                                          | 工具栏弹窗与独立设置页                                                                       | 解压后加载，或直接加载仓库的 `extension/`                                                                                                      |
 
-当前源码：扩展 **0.1.9**，油猴 **0.1.9.1**。商店、Greasy Fork 和官网 ZIP 按各自发布流程更新；当前官网 ZIP 为 **0.1.6**。
+当前源码：扩展 **0.1.9**，油猴 **0.1.9.1**。官网 ZIP 已更新为 **0.1.9**；商店和 Greasy Fork 按各自发布流程更新。
 
 <details>
 <summary>统计口径</summary>

@@ -1,8 +1,21 @@
 # 线上部署记录与操作说明
 
+## 当前官网下载版本：0.1.9（2026-10-03）
+
+当前release：`20261003-215743-016fbdab9cc5`。使用`server/deploy.ps1`发布经验证的扩展ZIP及官网，
+固定下载`/downloads/biliskip.zip`、版本下载`/downloads/biliskip-0.1.9.zip`和各自SHA-256文件同步更新。
+首页及隐私页版本说明均使用0.1.9。旧`/downloads/biliskip-0.1.6.zip`及校验文件保留。
+
+- 本地包：`dist/biliskip-0.1.9-chrome-web-store-20261003-215705.zip`，51个扩展文件，3,932,596字节。
+- SHA-256：`0aa49c3301162f2aedfeab9ff3fdbb425a7aaab0a184df0c070ce82976aec20f`。
+- 部署前数据库备份：`/srv/biliskipad/data/backups/pre-site-zip-0.1.9-20261003-2200.sqlite`，728条广告记录、31条转写记录，完整性检查通过。
+- 部署后逐条核对原广告和转写记录，变更／缺失均为0，容器为`healthy`。
+- `npm run verify`通过321项测试；全量部署脚本新增历史版本ZIP保留，固定下载由本次发布替换。
+- 日志：`.tmp/site-zip019-pack.log`、`.tmp/site-zip019-deploy.log`，公网下载核验记录见`.tmp/site-zip019-online.json`。
+
 ## 2026-10-02 转写接口与v6上线
 
-当前release：`20261002-225017-691b2510389d`，通过`server/deploy-api.ps1`和`server/deploy/api.sh`上线。
+该次release：`20261002-225017-691b2510389d`，通过`server/deploy-api.ps1`和`server/deploy/api.sh`上线。
 新增`POST /v1/transcripts`（512KiB上限、哈希校验、幂等回执、独立待核验表），
 广告提交与转写提交共用每IP每1000ms一次的限流。新增`ad-cues-v6-json`，保留v1–v5。
 部署前备份`/srv/biliskipad/data/backups/pre-20261002-225017-691b2510389d.sqlite`，完整性检查通过，
@@ -209,8 +222,8 @@ curl --fail https://biliskipad.bakapiano.com/healthz
 - `/assets/`：本站图标与真实截图。
 - `/downloads/biliskip.zip`：固定扩展下载地址，内容随当前部署版本更新，要求缓存重新验证。
 - `/downloads/biliskip.zip.sha256`：固定下载地址的 SHA-256 校验值。
-- `/downloads/biliskip-0.1.4.zip`：与当前扩展源码一致的商店上传包。
-- `/downloads/biliskip-0.1.4.zip.sha256`：下载包校验值。
+- `/downloads/biliskip-0.1.9.zip`：当前公开扩展ZIP，根目录包含`manifest.json`。
+- `/downloads/biliskip-0.1.9.zip.sha256`：下载包校验值；历史版本路径保留供回溯。
 - `/v1/` 与 `/healthz`：继续代理到原 Node 服务。
 - `/v1/stats`：公开缓存汇总，首页使用 `/stats.js` 同源读取；统计输出不含 IP、凭据或逐条记录。
 

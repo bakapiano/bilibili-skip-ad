@@ -237,6 +237,11 @@ test("Nginx serves the landing page alongside unchanged API forwarding and limit
   }
   assert.match(installer, /Landing page readiness check failed/);
   assert.ok(installer.includes("site/downloads/biliskip.zip|site/downloads/biliskip.zip.sha256"));
+  assert.ok(installer.includes('"$previous_release/site/downloads"/biliskip-*.zip*'));
+  assert.ok(
+    installer.includes('cp -p -- "$old_download" "$release_dir/site/downloads/$download_name"'),
+  );
+  assert.ok(installer.includes("[[ ! -e $release_dir/site/downloads/$download_name ]]"));
 });
 
 test("home statistics request only public aggregates and render numbers with textContent", async (t) => {

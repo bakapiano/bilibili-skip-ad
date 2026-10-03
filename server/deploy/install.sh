@@ -58,6 +58,17 @@ elif [[ -e $app_root/current ]]; then
     echo 'Current release path should be a managed symbolic link.' >&2
     exit 1
 fi
+# Preserve versioned download links while the new release replaces the stable ZIP.
+if [[ -n $previous_release && -d $previous_release/site/downloads ]]; then
+    for old_download in "$previous_release/site/downloads"/biliskip-*.zip*; do
+        [[ -f $old_download && ! -L $old_download ]] || continue
+        download_name=${old_download##*/}
+        [[ $download_name =~ ^biliskip-[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?\.zip(\.sha256)?$ ]] || continue
+        if [[ ! -e $release_dir/site/downloads/$download_name ]]; then
+            cp -p -- "$old_download" "$release_dir/site/downloads/$download_name"
+        fi
+    done
+fi
 backup_dir="$app_root/backups/$release_id"
 if [[ -z $previous_release ]] && [[ -n $(ss -H -lnt 'sport = :8787') ]]; then
     echo 'Port 8787 is already occupied; inspect the existing listener first.' >&2
