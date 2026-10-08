@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 const root = fileURLToPath(new URL("../", import.meta.url));
 export const USERSCRIPT_VERSION = `${BUILD_VERSION}.1`;
 
-export async function bundleUserscript() {
+export async function bundleUserscript({ petPreviewSource } = {}) {
   const worker = await build({
     define: { process: "undefined", module: "undefined" },
     external: ["fs", "path"],
@@ -29,6 +29,7 @@ export async function bundleUserscript() {
     assert.equal(createHash("sha256").update(bytes).digest("hex"), asset.sha256, asset.file);
   }
   const license = (await readFile(path.join(root, "LICENSE"), "utf8")).trim();
+  const petNotice = await readFile(path.join(root, "assets/pet/NOTICE.md"), "utf8");
   const notices = await Promise.all(
     [
       "NOTICE.md",
@@ -97,11 +98,24 @@ export async function bundleUserscript() {
     legalComments: "inline",
     loader: { ".html": "text", ".css": "text" },
     banner: {
-      js: `${header}\n\n/*\n${license}\n*/\n/*\n${notices.join("\n\n").replaceAll("*/", "* /")}\n*/`,
+      js: `${header}\n\n/*\n${license}\n*/\n/*\n${petNotice.replaceAll("*/", "* /")}\n*/\n/*\n${notices.join("\n\n").replaceAll("*/", "* /")}\n*/`,
     },
     metafile: true,
     logLevel: "silent",
     plugins: [
+      ...(petPreviewSource
+        ? [
+            {
+              name: "local-pet-preview",
+              setup(builder) {
+                builder.onLoad({ filter: /[\\/]extension[\\/]pet-assets\.js$/ }, () => ({
+                  contents: petPreviewSource,
+                  loader: "js",
+                }));
+              },
+            },
+          ]
+        : []),
       {
         name: "bundled-asr",
         setup(builder) {

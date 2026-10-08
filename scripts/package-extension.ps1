@@ -26,7 +26,7 @@ try {
                 throw "Unsafe archive path: $($entry.FullName)"
             }
             $legalNotices = @('LICENSE', 'ONNXRUNTIME-LICENSE', 'ONNXRUNTIME-NOTICES', 'SILERO-LICENSE', 'FUNASR-MODEL-LICENSE')
-            if ($entry.Name -ne '' -and $entry.Name -notin $legalNotices -and $entry.FullName -notmatch '\.(js|html|css|json|png|wasm|bin|md|txt)$') {
+            if ($entry.Name -ne '' -and $entry.Name -notin $legalNotices -and $entry.FullName -notmatch '\.(js|html|css|json|png|svg|wasm|bin|md|txt)$') {
                 throw "Unexpected archive file: $($entry.FullName)"
             }
         }

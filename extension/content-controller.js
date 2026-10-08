@@ -4,8 +4,10 @@ globalThis.BiliSkipContent = function startContent(transport) {
   const P = globalThis.BiliSkipPlayer;
   const timeline = new globalThis.BiliSkipTimeline();
   const abort = new AbortController();
+  const observers = new Set();
   let ref = null;
   let generation = 0;
+  let activityId = 0;
   let routeSince = 0;
   let video = null;
   let observedSource = "";
@@ -19,11 +21,13 @@ globalThis.BiliSkipContent = function startContent(transport) {
     hasKey: false,
     consent: false,
   };
+  let settingsReady = false;
   let loading = false;
   let analyzing = false;
   let stage = "loading";
   let message = "正在准备…";
   let lastSkip = null;
+  let skipSequence = 0;
   const ignored = new Set();
   const completed = new Set();
   const autoAttempted = new Set();
@@ -117,21 +121,24 @@ globalThis.BiliSkipContent = function startContent(transport) {
         settings.autoSkip &&
         P.automatic(state.record, segment, settings.confidenceThreshold)
       ) {
-        jump(segment);
+        jump(segment, true);
         return;
       }
     }
     render();
   }
-  function jump(segment) {
+  function jump(segment, automatic = false) {
     if (!valid() || video.seeking) {
       return;
     }
     const index = state.record.segments.indexOf(segment);
     lastSkip = {
+      id: ++skipSequence,
+      automatic,
       index,
       from: video.currentTime,
       to: Math.min(video.duration, segment.end + 0.05),
+      seconds: Math.max(0, Math.min(video.duration, segment.end) - video.currentTime),
       route: ref.route,
     };
     completed.add(index);
@@ -166,6 +173,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
     render();
     try {
       settings = await send({ type: "SET_AUTO_SKIP", video: ref, enabled: value });
+      settingsReady = true;
     } catch (error) {
       settings.autoSkip = previous;
       showError(error);
@@ -180,7 +188,10 @@ globalThis.BiliSkipContent = function startContent(transport) {
       state.record?.key !== result.record?.key ||
       state.record?.createdAt !== result.record?.createdAt;
     state = result;
-    settings = result.settings || settings;
+    if (result.settings) {
+      settings = result.settings;
+      settingsReady = true;
+    }
     host.dataset.build = settings.buildVersion || "";
     host.dataset.errorCode = result.error?.code || "";
     stage = result.error ? "error" : result.record ? "ready" : "idle";
@@ -204,6 +215,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
       return;
     }
     const epoch = generation;
+    activityId++;
     loading = true;
     stage = "loading";
     message = transcribeForCache
@@ -254,6 +266,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
       return;
     }
     const epoch = generation;
+    activityId++;
     analyzing = true;
     stage = "model";
     message = "正在准备广告识别…";
@@ -333,7 +346,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
       !completed.has(state.record.segments.indexOf(segment)) &&
       P.automatic(state.record, segment, settings.confidenceThreshold)
     ) {
-      jump(segment);
+      jump(segment, true);
       return;
     }
     host.dataset.state = stage;
@@ -366,14 +379,23 @@ globalThis.BiliSkipContent = function startContent(transport) {
       delete host.dataset.apiCalls;
       delete host.dataset.cacheHits;
     }
+    for (const listener of observers) {
+      try {
+        listener(snapshot());
+      } catch {
+        // Optional decorations must remain isolated from video playback.
+      }
+    }
   }
   function snapshot() {
     const busy = loading || analyzing || uploading;
     return {
       ...state,
+      activityId,
       video: ref,
       videoTitle: state.video?.title || "",
       settings,
+      settingsReady,
       stage,
       message: displayedMessage,
       busy,
@@ -384,6 +406,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
         ready: valid() && !video.seeking,
         canSkip: Boolean(currentSegment() && !video?.seeking),
         canUndo: Boolean(lastSkip && valid() && !video.seeking),
+        lastSkip: lastSkip && valid() ? { ...lastSkip } : null,
         currentTime: video?.currentTime || 0,
         paused: video?.paused ?? true,
       },
@@ -526,6 +549,9 @@ globalThis.BiliSkipContent = function startContent(transport) {
       completed.clear();
       stage = "loading";
       message = "正在准备当前视频…";
+      if (!ref) {
+        render();
+      }
       if (ref) {
         refresh();
       }
@@ -556,6 +582,9 @@ globalThis.BiliSkipContent = function startContent(transport) {
   }
   const onMessage = (data) => {
     if (data.type === "BILISKIP_PROGRESS" && data.route === ref?.route) {
+      if (data.job) {
+        state = { ...state, job: data.job };
+      }
       if (data.job?.status === "error") {
         stage = "error";
         message = data.job.message;
@@ -570,6 +599,7 @@ globalThis.BiliSkipContent = function startContent(transport) {
       const wasAutomatic = settings.autoAnalyze;
       const wasSkip = settings.autoSkip;
       settings = data.settings;
+      settingsReady = true;
       if (policyChanged && ref) {
         state = { ...state, record: null };
         autoAttempted.delete(ref.route);
@@ -593,12 +623,18 @@ globalThis.BiliSkipContent = function startContent(transport) {
   tick();
   return {
     control,
+    observe(listener) {
+      observers.add(listener);
+      listener(snapshot());
+      return () => observers.delete(listener);
+    },
     destroy() {
       generation++;
       ref = null;
       clearInterval(interval);
       abort.abort();
       unsubscribe();
+      observers.clear();
       detachMedia();
       timeline.clear();
       host.remove();

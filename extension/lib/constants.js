@@ -1,11 +1,14 @@
+import { DEFAULT_PET_SETTINGS } from "./pet-config.js";
+
 export const MODEL = "deepseek-flash";
-export const BUILD_VERSION = "0.1.9";
+export const BUILD_VERSION = "0.2.0";
 export const SETTINGS_VERSION = 2;
 export const DEFAULT_SHARED_URL = "https://biliskipad.bakapiano.com";
 export const PROMPT_VERSION = "ad-cues-v6-json";
 export const SCHEMA_VERSION = 1;
 export const MAX_BYTES = 4 * 1024 * 1024;
 export const DEFAULT_SETTINGS = Object.freeze({
+  ...DEFAULT_PET_SETTINGS,
   consent: false,
   autoAnalyze: false,
   autoSkip: false,
@@ -49,10 +52,9 @@ export const LABEL_SCHEMA = {
 };
 export { INSTRUCTIONS } from "./ad-instructions.js";
 
-// Price snapshot, not a live bill. Both schedules are shown to avoid guessing
-// statutory holidays. The service's actual bill remains authoritative.
+// Price snapshot. A single period is selected when usage arrives; the account bill remains authoritative.
 export const PRICING = Object.freeze({
-  asOf: "2026-09-29",
+  asOf: "2026-10-08",
   currency: "CNY",
   offPeak: { hit: 0.02, miss: 1, output: 4 },
   peak: { hit: 0.04, miss: 2, output: 8 },

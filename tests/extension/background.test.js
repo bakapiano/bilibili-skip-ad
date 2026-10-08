@@ -11,7 +11,12 @@ test("background startup, sender checks and network-error response preserve secr
     fetch: globalThis.fetch,
   };
   const data = {
-    settings: { ...DEFAULT_SETTINGS, consent: true },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      consent: true,
+      petDialogueVersion: 1,
+      petDialogues: { idle: { title: "陪伴", detail: "迁移旧说明" } },
+    },
     deepseekKey: "private-test-key",
     sharedToken: "private-test-token",
   };
@@ -80,6 +85,8 @@ test("background startup, sender checks and network-error response preserve secr
     assert.equal(fetchCalls, 1);
     const ui = { id: "test-extension", url: "chrome-extension://test-extension/options.html" };
     assert.equal(data.settingsVersion, 2);
+    assert.equal(data.settings.petDialogueVersion, 4);
+    assert.deepEqual(data.settings.petDialogues, { idle: { title: "陪伴\n迁移旧说明" } });
     assert.equal((await request({ type: "GET_SETTINGS" }, ui)).data.hasSharedToken, true);
     const changedOrigin = await request(
       {
@@ -117,6 +124,30 @@ test("background startup, sender checks and network-error response preserve secr
     assert.equal(switched.ok, true);
     assert.equal(switched.data.error.code, "BILI_NETWORK");
     assert.equal((await request({ type: "GET_PAGE_STATE", video: ref })).error.code, "SENDER");
+    const concurrent = await Promise.all([
+      request({ type: "SAVE_SETTINGS", settings: { autoSkip: true } }, ui),
+      request({ type: "SAVE_SETTINGS", settings: { confidenceThreshold: 0.94 } }, ui),
+    ]);
+    assert.ok(concurrent.every((response) => response.ok));
+    assert.equal(data.settings.autoSkip, true);
+    assert.equal(data.settings.confidenceThreshold, 0.94);
+    const petSettings = {
+      petEnabled: true,
+      petMirror: true,
+      petVolume: 35,
+      petDialogues: { skip: { title: "已跳过 {seconds} 秒" } },
+    };
+    const petSaved = await request({ type: "SAVE_SETTINGS", settings: petSettings }, ui);
+    assert.equal(petSaved.ok, true);
+    assert.equal(petSaved.data.petMirror, true);
+    assert.deepEqual(petSaved.data.petDialogues, petSettings.petDialogues);
+    assert.equal(JSON.stringify(petSaved).includes("private-"), false);
+    const invalidPet = await request(
+      { type: "SAVE_SETTINGS", settings: { petImage: "https://example.com/pet.png" } },
+      ui,
+    );
+    assert.equal(invalidPet.error.code, "SETTINGS");
+    assert.equal(data.settings.petImage, "");
   } finally {
     Object.assign(globalThis, original);
   }

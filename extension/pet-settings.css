@@ -1,0 +1,177 @@
+.pet-preferences {
+  color: #35526b;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.pet-preferences [hidden] {
+  display: none !important;
+}
+.pet-preferences .pet-hint {
+  color: #718499;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.pet-preferences h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #294c67;
+}
+.pet-preferences label {
+  display: block;
+  margin: 12px 0 6px;
+}
+.pet-preferences .pet-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf2f7;
+}
+.pet-preferences .pet-volume {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.pet-preferences input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #1686aa;
+  padding: 0;
+  width: 100%;
+}
+.pet-preferences input[type="text"],
+.pet-preferences textarea,
+.pet-preferences select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #ccdbe6;
+  border-radius: 8px;
+  color: #35526b;
+  background: #f8fbfd;
+  font: inherit;
+}
+.pet-preferences textarea {
+  resize: vertical;
+}
+.pet-appearance {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin: 24px 0;
+}
+.pet-image-frame,
+#pet-crop-canvas {
+  background: repeating-conic-gradient(#edf2f7 0% 25%, #fff 0% 50%) 50% / 16px 16px;
+  border: 1px solid #dce7ef;
+  border-radius: 12px;
+}
+.pet-image-frame {
+  width: 112px;
+  height: 112px;
+  flex: none;
+  overflow: hidden;
+}
+#pet-image-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pet-preferences button,
+.pet-preferences .pet-upload {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  padding: 7px 10px;
+  border: 1px solid #ccdbe6;
+  border-radius: 8px;
+  background: #f6f9fc;
+  color: #35526b;
+  font: inherit;
+  margin: 4px 4px 4px 0;
+}
+.pet-preferences .pet-upload,
+#pet-crop-save {
+  background: #1686aa;
+  color: #fff;
+  border-color: #1686aa;
+}
+#pet-image-file,
+#pet-audio-file {
+  display: block;
+  max-width: 100%;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.pet-audio-upload {
+  margin: 12px 0 20px;
+}
+.pet-crop {
+  border: 1px solid #b9d6e6;
+  border-radius: 14px;
+  padding: 18px;
+  background: #f4f9fc;
+  margin: 20px 0;
+}
+#pet-crop-canvas {
+  display: block;
+  width: min(256px, 100%);
+  height: auto;
+  margin: 12px auto;
+  touch-action: none;
+  cursor: grab;
+}
+.pet-crop label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.pet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 12px 0;
+}
+.pet-dialogue-editor {
+  padding-top: 20px;
+  border-top: 1px solid #e6eef4;
+}
+.pet-dialogue-preview {
+  margin: 18px auto;
+  padding: 18px 26px;
+  max-width: 300px;
+  border: 2px solid #7298ca;
+  box-shadow: 0 3px 14px #5574a330;
+  border-radius: 48%;
+  background: white;
+  text-align: center;
+  color: #26335c;
+  overflow-wrap: anywhere;
+}
+.pet-dialogue-preview strong {
+  display: block;
+  white-space: pre-line;
+}
+.pet-save-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 12px;
+  color: #237e9a;
+}
+.pet-save-state .error {
+  color: #af3535;
+}
+@media (max-width: 560px) {
+  .pet-appearance {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

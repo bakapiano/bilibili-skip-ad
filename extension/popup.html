@@ -9,6 +9,7 @@
   <body>
     <main aria-label="BiliSkip 广告跳过">
       <header>
+        <img class="brand-icon" src="icons/icon.svg" alt="" width="36" height="36" />
         <h1>BiliSkip</h1>
         <span id="source">本地优先</span>
         <button id="options" type="button">设置</button>
@@ -19,10 +20,20 @@
         <button id="analyze" class="primary" type="button" disabled>分析当前视频</button>
         <button id="refresh" type="button" disabled>读取缓存</button>
         <button id="online" type="button" disabled>读取线上缓存</button>
-        <button id="toggle" type="button" disabled>开启自动跳过</button>
+
         <button id="skip" type="button" disabled>跳过当前广告</button>
         <button id="undo" type="button" disabled>撤销跳过</button>
       </div>
+      <button
+        id="toggle"
+        class="skip-switch"
+        role="switch"
+        aria-checked="false"
+        type="button"
+        disabled
+      >
+        自动跳过广告
+      </button>
       <div id="meter" aria-label="广告时间轴"></div>
       <details open>
         <summary id="summary">广告标记</summary>
@@ -31,7 +42,7 @@
       <p id="meta" class="hint"></p>
       <button id="upload" type="button" hidden>上传到线上缓存</button>
       <p id="upload-status" class="hint"></p>
-      <footer>视频进度条的金色区间为广告。关闭弹窗后，分析、上传与自动跳过会继续执行。</footer>
+      <footer>金色区间为符合跳过条件的广告。关闭面板后继续处理。</footer>
     </main>
     <script src="player-core.js"></script>
     <script src="popup-view.js"></script>

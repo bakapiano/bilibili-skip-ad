@@ -1,0 +1,98 @@
+:host {
+  all: initial;
+  color-scheme: light;
+  font:
+    13px/1.55 system-ui,
+    "Microsoft YaHei",
+    sans-serif;
+  color: #263b51;
+}
+.biliskip-drawer {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(396px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #d5e3ee;
+  border-radius: 18px;
+  background: #f6f9fc;
+  box-shadow: 0 12px 60px #142f4a38;
+  overflow: hidden;
+  animation: biliskip-drawer-enter 180ms ease-out;
+}
+.drawer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e4ecf3;
+}
+.drawer-toolbar span {
+  color: #76879a;
+  font-size: 11px;
+}
+.drawer-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  flex: 1;
+  min-height: 0;
+}
+#close-panel {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 20px;
+  line-height: 20px;
+  padding: 5px 8px;
+}
+main {
+  max-height: none;
+  overflow: visible;
+}
+.project-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px;
+  border-top: 1px solid #e4ecf3;
+  background: #fff;
+}
+.project-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #177fa6;
+  text-decoration: none;
+  font-size: 12px;
+}
+.project-links .project-link-icon,
+.project-links .project-link-icon svg {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.project-links a:hover {
+  text-decoration: underline;
+}
+@keyframes biliskip-drawer-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .biliskip-drawer {
+    animation: none;
+  }
+}

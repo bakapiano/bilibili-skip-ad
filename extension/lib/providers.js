@@ -28,10 +28,11 @@ export function deepseekRequest(context, { protocol = "json" } = {}) {
   };
 }
 export class DeepSeekClient {
-  constructor(fetcher = fetch, { protocol = "json" } = {}) {
+  constructor(fetcher = fetch, { protocol = "json", clock = Date.now } = {}) {
     this.fetcher = fetcher.bind(globalThis);
     assert(["json", "pipe"].includes(protocol), "OUTPUT", "模型输出协议异常。");
     this.protocol = protocol;
+    this.clock = clock;
   }
   async analyze(context, key) {
     assert(
@@ -63,7 +64,7 @@ export class DeepSeekClient {
         messages[response.status] || `DeepSeek 返回 HTTP ${response.status}，请稍后重试。`,
       );
       const payload = JSON.parse(new TextDecoder().decode(await boundedBody(response, MAX_BYTES)));
-      usage = usageCost(payload.usage);
+      usage = usageCost(payload.usage, this.clock());
       assert(
         Array.isArray(payload.choices) && payload.choices.length === 1,
         "OUTPUT",

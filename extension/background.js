@@ -14,10 +14,17 @@ import { DeepSeekClient, SharedClient } from "./lib/providers.js";
 import { AnalysisService } from "./lib/service.js";
 import { OffscreenAsr } from "./lib/offscreen-asr.js";
 import { publicSettings, trustedUI, verifyPage, verifyPageSource } from "./lib/messaging.js";
+import { PET_DIALOGUE_VERSION } from "./lib/pet-config.js";
 
 const db = new LocalDB();
 let asr;
 const subscribers = new Map();
+let settingsWrite = Promise.resolve();
+function serializeSettings(task) {
+  const pending = settingsWrite.then(task);
+  settingsWrite = pending.catch(() => {});
+  return pending;
+}
 const ready = (async () => {
   await chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
   await chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
@@ -26,7 +33,10 @@ const ready = (async () => {
     "settingsVersion",
     "sharedTokenOrigin",
   ]);
-  if (saved.settingsVersion !== SETTINGS_VERSION) {
+  if (
+    saved.settingsVersion !== SETTINGS_VERSION ||
+    saved.settings?.petDialogueVersion !== PET_DIALOGUE_VERSION
+  ) {
     await chrome.storage.local.set({
       settings: migrateSharedSettings(saved.settings || {}, saved.settingsVersion || 0),
       settingsVersion: SETTINGS_VERSION,
@@ -253,7 +263,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type?.startsWith("ASR_")) {
     return false;
   }
-  handle(message, sender).then(
+  const result = ["SAVE_SETTINGS", "SET_AUTO_SKIP"].includes(message?.type)
+    ? serializeSettings(() => handle(message, sender))
+    : handle(message, sender);
+  result.then(
     (data) => sendResponse({ ok: true, data }),
     (error) => sendResponse({ ok: false, error: safeError(error) }),
   );

@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { sharedOrigin } from "../../extension/lib/core.js";
 import { bindModelSettings } from "../../extension/lib/model-settings.js";
 import { modelSource } from "../../extension/lib/asr-config.js";
+import { createAutoSave } from "../../extension/lib/auto-save.js";
 
 export function uiFixture(name, chrome, extras = {}) {
   const html = readFileSync(new URL(`../../extension/${name}.html`, import.meta.url), "utf8");
@@ -32,6 +33,21 @@ export function uiFixture(name, chrome, extras = {}) {
     addEventListener(type, fn) {
       this.events.set(type, fn);
     }
+    setAttribute(name, value) {
+      this[name] = String(value);
+    }
+    checkValidity() {
+      if (this.type !== "number") {
+        return true;
+      }
+      const number = Number(this.value);
+      return (
+        String(this.value).trim() !== "" &&
+        Number.isFinite(number) &&
+        number >= this.min &&
+        number <= this.max
+      );
+    }
     async emit(type, isTrusted = true) {
       if (type === "click" && (this.disabled || this.hidden)) {
         return;
@@ -44,6 +60,9 @@ export function uiFixture(name, chrome, extras = {}) {
     const element = new Element(match[1]);
     element.disabled = /\bdisabled\b/.test(match[0]);
     element.hidden = /\bhidden\b/.test(match[0]);
+    element.type = match[0].match(/\btype="([^"]+)"/)?.[1];
+    element.min = Number(match[0].match(/\bmin="([^"]+)"/)?.[1] ?? -Infinity);
+    element.max = Number(match[0].match(/\bmax="([^"]+)"/)?.[1] ?? Infinity);
     elements.set(match[2], element);
   }
   const get = (id) => {
@@ -59,6 +78,11 @@ export function uiFixture(name, chrome, extras = {}) {
     sharedOrigin,
     bindModelSettings,
     modelSource,
+    createAutoSave,
+    // Navigation owns real DOM geometry; section-navigation.test.js covers that binding.
+    bindSectionNavigation: () => () => {},
+    // Pet DOM/crop behavior has a full JSDOM suite in pet-settings.test.js.
+    bindPetSettings: () => ({ load() {}, destroy() {} }),
     // Deterministic cache stand-in: ordinary options tests perform no model downloads.
     AsrModelCache: class {
       async status() {
@@ -76,7 +100,14 @@ export function uiFixture(name, chrome, extras = {}) {
     clearInterval: () => {
       interval = null;
     },
-    window: { addEventListener: (type, fn) => events.set(type, fn) },
+    window: {
+      addEventListener(type, fn) {
+        if (!events.has(type)) {
+          events.set(type, []);
+        }
+        events.get(type).push(fn);
+      },
+    },
     document: {
       getElementById: get,
       createElement: (tag) => new Element(tag),
@@ -100,5 +131,11 @@ export function uiFixture(name, chrome, extras = {}) {
     );
   }
   vm.runInContext(source.replace(/^import .*;\r?\n/gm, ""), sandbox);
-  return { get, all, poll: () => interval?.(), close: () => events.get("pagehide")?.(), sandbox };
+  return {
+    get,
+    all,
+    poll: () => interval?.(),
+    close: () => events.get("pagehide")?.forEach((fn) => fn()),
+    sandbox,
+  };
 }

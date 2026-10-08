@@ -1,0 +1,18 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 300 220"
+  preserveAspectRatio="none"
+  fill="white"
+  stroke="#7298ca"
+  stroke-width="2"
+  aria-hidden="true"
+  focusable="false"
+  class="biliskip-pet-bubble-shape"
+>
+  <path
+    class="biliskip-pet-bubble-main"
+    d="M285 80C287 118 230 146 153 145C132 159 107 156 98 143C47 135 13 113 13 81C13 42 74 13 150 13C225 13 284 40 285 80Z"
+  />
+  <ellipse class="biliskip-pet-bubble-dot-large" cx="116" cy="176" rx="13" ry="8.5" />
+  <ellipse class="biliskip-pet-bubble-dot-small" cx="137" cy="202" rx="7" ry="5" />
+</svg>

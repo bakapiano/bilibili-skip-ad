@@ -192,5 +192,6 @@ test("a stale poll response cannot replace the state returned by a newer command
   await flush();
   gate.resolve({ ok: true, data: sample() });
   await poll;
-  assert.equal(f.get("toggle").textContent, "开启自动跳过");
+  assert.equal(f.get("toggle").textContent, "自动跳过广告");
+  assert.equal(f.get("toggle")["aria-checked"], "false");
 });

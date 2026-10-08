@@ -2,6 +2,11 @@ import "../extension/player-core.js";
 import "../extension/timeline.js";
 import "../extension/content-controller.js";
 import "../extension/popup-view.js";
+import "../extension/player-assets.js";
+import "../extension/player-panel.js";
+import "../extension/pet-state.js";
+import "../extension/pet-assets.js";
+import "../extension/pet.js";
 import { assert, safeError } from "../extension/lib/core.js";
 import { UserscriptRuntime, SETTINGS_KEY } from "./runtime.js";
 import { createPanel } from "./panel.js";
@@ -16,6 +21,7 @@ async function start() {
     "请使用 Tampermonkey 5.4+ 运行本脚本。",
   );
   let controller;
+  let pet;
   const fetcher = createGMFetch(GM);
   const asr = userscriptAsr(GM, fetcher);
   const runtime = new UserscriptRuntime({
@@ -34,6 +40,7 @@ async function start() {
   };
   const panel = createPanel({
     runtime,
+    enabled: () => Boolean(controller) && !document.getElementById("biliskip-extension-root"),
     control: (data) => {
       assert(
         controller,
@@ -66,9 +73,17 @@ async function start() {
       request: (payload) => runtime.request(payload),
       subscribe: (listener) => runtime.subscribe(listener),
     });
+    panel.sync();
+    pet = globalThis.BiliSkipPet({
+      observe: controller.observe,
+      openPanel: () => panel.open(),
+      id: "biliskip-userscript-pet",
+    });
   }
   const conflictTimer = setInterval(() => {
     if (controller && hasExtension()) {
+      pet?.destroy();
+      panel.destroy();
       controller.destroy();
       controller = null;
       runtime.fetcher.dispose();
@@ -94,7 +109,8 @@ async function start() {
   window.addEventListener(
     "pagehide",
     () => {
-      panel.close();
+      pet?.destroy();
+      panel.destroy();
       asr.close();
       controller?.destroy();
       clearInterval(conflictTimer);

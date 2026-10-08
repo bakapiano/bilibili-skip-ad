@@ -6,6 +6,19 @@ import { test } from "node:test";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 
+function isLocalEvidence(documentPath, targetPath) {
+  return documentPath.startsWith("docs/testing/") && /^(?:dist|\.tmp)\//.test(targetPath);
+}
+
+test("only historical verification documents may link to local generated evidence", () => {
+  assert.equal(isLocalEvidence("docs/testing/example.md", "dist/example/report.json"), true);
+  assert.equal(isLocalEvidence("docs/testing/example.md", ".tmp/example/report.json"), true);
+  assert.equal(isLocalEvidence("README.md", "dist/example/report.json"), false);
+  assert.equal(isLocalEvidence("docs/extension.md", "dist/example/report.json"), false);
+  assert.equal(isLocalEvidence("docs/testing/example.md", "extension/missing.js"), false);
+  assert.equal(isLocalEvidence("docs/testing/example.md", "dist-other/report.json"), false);
+});
+
 test("root Markdown stays minimal and maintained documentation links resolve", async () => {
   const rootDocs = (await readdir(root)).filter((name) => name.endsWith(".md")).sort();
   assert.deepEqual(rootDocs, ["AGENTS.md", "README.md"]);
@@ -35,6 +48,15 @@ test("root Markdown stays minimal and maintained documentation links resolve", a
       const resolved = path.resolve(path.dirname(file), decodeURIComponent(target.split("#")[0]));
       const relative = path.relative(root, resolved);
       assert.ok(!relative.startsWith("..") && !path.isAbsolute(relative), `${file}: ${target}`);
+      // Historical browser reports live in ignored output directories outside a fresh checkout.
+      if (
+        isLocalEvidence(
+          path.relative(root, file).split(path.sep).join("/"),
+          relative.split(path.sep).join("/"),
+        )
+      ) {
+        continue;
+      }
       assert.ok((await stat(resolved)).isFile(), `${file}: ${target}`);
     }
   }

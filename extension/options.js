@@ -2,12 +2,18 @@ import { sharedOrigin } from "./lib/core.js";
 import { AsrModelCache } from "./lib/asr-model.js";
 import { bindModelSettings } from "./lib/model-settings.js";
 import { modelSource } from "./lib/asr-config.js";
+import { createAutoSave } from "./lib/auto-save.js";
+import { bindSectionNavigation } from "./lib/section-navigation.js";
+import { bindPetSettings } from "./lib/pet-settings-view.js";
 const $ = (id) => document.getElementById(id);
+const stopNavigation = bindSectionNavigation($("settings-nav"));
+window.addEventListener("pagehide", stopNavigation, { once: true });
 let cache = [];
 let cachePage = 1;
 let cachePageSize = 10;
 const CACHE_PAGE_SIZES = new Set([10, 20, 50]);
 let current = {};
+let settingsReady = false;
 const modelCache = new AsrModelCache();
 async function modelPermission(id) {
   const source = modelSource(id);
@@ -42,6 +48,7 @@ function notice(text, error = false) {
 }
 function showSettings(settings) {
   current = settings;
+  petSettings.load(settings);
   for (const [id, field] of [
     ["consent", "consent"],
     ["auto-analyze", "autoAnalyze"],
@@ -67,64 +74,133 @@ function showSettings(settings) {
   $("shared-token").placeholder = settings.hasSharedToken
     ? "共享令牌已配置，留空保留"
     : "可选，与 DeepSeek Key 独立";
-}
-function readForm() {
-  return {
-    consent: $("consent").checked,
-    autoAnalyze: $("auto-analyze").checked,
-    autoSkip: $("auto-skip").checked,
-    confidenceThreshold: Number($("threshold").value),
-    sharedBaseUrl: sharedOrigin($("shared-url").value.trim()),
-    sharedRead: $("shared-read").checked,
-    sharedUpload: $("shared-upload").checked,
-    autoUpload: $("auto-upload").checked,
-    asrEnabled: $("asr-enabled").checked,
-    asrUpload: $("asr-upload").checked,
-    asrConcurrency: Number($("asr-concurrency").value),
-    asrModelSource: $("model-source").value,
-    shortVideoExempt: $("short-exempt").checked,
-    shortVideoMinutes: Number($("short-minutes").value),
-  };
+  settingsReady = true;
 }
 function updateUploadControls() {
   $("auto-upload").disabled = !$("shared-upload").checked;
-}
-$("shared-upload").addEventListener("change", updateUploadControls);
-$("settings-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!event.isTrusted) {
-    return;
+  $("auto-analyze").disabled = !$("consent").checked;
+  if (!$("consent").checked) {
+    $("auto-analyze").checked = false;
   }
-  $("save").disabled = true;
-  try {
-    const settings = readForm();
-    await modelPermission(settings.asrModelSource);
-    if (settings.sharedRead || settings.sharedUpload || settings.asrUpload) {
-      if (!settings.sharedBaseUrl) {
-        throw new Error("请填写共享服务域名。");
+}
+const autoSave = createAutoSave({
+  save: (message) => call({ type: "SAVE_SETTINGS", ...message }),
+});
+const petSettings = bindPetSettings($("pet-settings"), {
+  save: (settings) => autoSave({ settings }),
+});
+window.addEventListener("pagehide", () => petSettings.destroy(), { once: true });
+const failedSaves = new Map();
+let pendingSaves = 0;
+function saveStatus() {
+  const firstError = failedSaves.values().next().value;
+  $("save-status").textContent = firstError
+    ? firstError.message
+    : pendingSaves
+      ? "正在保存…"
+      : "已自动保存";
+  $("save-status").classList.toggle("error", Boolean(firstError));
+  $("retry-save").hidden = !firstError;
+}
+const fields = [
+  ["consent", "consent", "switch"],
+  ["auto-analyze", "autoAnalyze", "switch"],
+  ["auto-skip", "autoSkip", "switch"],
+  ["shared-read", "sharedRead", "switch"],
+  ["shared-upload", "sharedUpload", "switch"],
+  ["auto-upload", "autoUpload", "switch"],
+  ["asr-enabled", "asrEnabled", "switch"],
+  ["asr-upload", "asrUpload", "switch"],
+  ["short-exempt", "shortVideoExempt", "switch"],
+  ["threshold", "confidenceThreshold", "number"],
+  ["asr-concurrency", "asrConcurrency", "number"],
+  ["short-minutes", "shortVideoMinutes", "number"],
+  ["model-source", "asrModelSource", "text"],
+  ["shared-url", "sharedBaseUrl", "url"],
+  ["api-key", "apiKey", "secret"],
+  ["shared-token", "sharedToken", "secret"],
+];
+for (const [id, field, kind] of fields) {
+  const input = $(id);
+  let revision = 0;
+  const saveInput = async () => {
+    const attempt = ++revision;
+    const raw = String(input.value).trim();
+    pendingSaves++;
+    failedSaves.delete(field);
+    saveStatus();
+    try {
+      if (kind === "number" && (!raw || !input.checkValidity())) {
+        throw new Error("请填写有效范围内的数字。");
       }
-      const permission = { origins: [`${settings.sharedBaseUrl}/*`] };
-      const granted =
-        (await chrome.permissions.contains(permission)) ||
-        (await chrome.permissions.request(permission));
-      if (!granted) {
-        throw new Error("共享域名授权尚未完成，原设置保持不变。");
+      const value = kind === "switch" ? input.checked : kind === "number" ? Number(raw) : raw;
+      const patch =
+        kind === "secret" ? {} : { [field]: kind === "url" ? sharedOrigin(value) : value };
+      if (field === "consent" && !value) {
+        patch.autoAnalyze = false;
       }
+      if (kind === "secret" && !value) {
+        return;
+      }
+      if (field === "asrModelSource") {
+        await modelPermission(value);
+      }
+      if (
+        field === "sharedBaseUrl" ||
+        (["sharedRead", "sharedUpload", "asrUpload"].includes(field) && value)
+      ) {
+        const origin = patch.sharedBaseUrl || current.sharedBaseUrl;
+        if (!origin) {
+          throw new Error("请填写共享服务域名。");
+        }
+        const permission = { origins: [`${origin}/*`] };
+        if (
+          !(await chrome.permissions.contains(permission)) &&
+          !(await chrome.permissions.request(permission))
+        ) {
+          throw new Error("共享域名授权尚未完成，请重试。");
+        }
+      }
+      if (attempt !== revision) {
+        return;
+      }
+      const message = { settings: patch, ...(kind === "secret" ? { [field]: value } : {}) };
+      await autoSave(message, (result) => {
+        current = result;
+        if (kind === "secret" && input.value.trim() === value) {
+          input.value = "";
+          if (field === "apiKey") {
+            $("key-status").textContent = "个人 Key 已保存";
+          } else {
+            input.placeholder = "共享令牌已配置，留空保留";
+          }
+        }
+      });
+    } catch (error) {
+      if (attempt === revision) {
+        failedSaves.set(field, { message: error.message, retry: saveInput });
+      }
+    } finally {
+      pendingSaves--;
+      saveStatus();
     }
-    const result = await call({
-      type: "SAVE_SETTINGS",
-      settings,
-      apiKey: $("api-key").value.trim(),
-      sharedToken: $("shared-token").value.trim(),
-    });
-    $("api-key").value = "";
-    $("shared-token").value = "";
-    showSettings(result);
-    notice("设置已保存。现在可以回到 B站视频页进行分析。");
-  } catch (error) {
-    notice(error.message, true);
-  } finally {
-    $("save").disabled = false;
+  };
+  input.addEventListener("change", (event) => {
+    if (event.isTrusted && settingsReady) {
+      updateUploadControls();
+      return saveInput();
+    }
+  });
+}
+$("retry-save").addEventListener("click", (event) => {
+  if (event.isTrusted) {
+    return Promise.all([...failedSaves.values()].map((failure) => failure.retry()));
+  }
+});
+$("settings-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (event.isTrusted) {
+    document.activeElement?.blur();
   }
 });
 async function refreshCache() {
@@ -225,13 +301,14 @@ $("clear-key").addEventListener("click", async (event) => {
     return;
   }
   try {
-    showSettings(
-      await call({
-        type: "SAVE_SETTINGS",
-        settings: { ...current, autoAnalyze: false },
-        clearKey: true,
-      }),
-    );
+    const result = await autoSave({
+      settings: { autoAnalyze: false },
+      clearKey: true,
+    });
+    current = result;
+    $("auto-analyze").checked = false;
+    $("api-key").value = "";
+    $("key-status").textContent = "缓存模式，可直接读取已有广告标记。";
     notice("DeepSeek Key 已清除，本地标记已保留。");
   } catch (error) {
     notice(error.message, true);

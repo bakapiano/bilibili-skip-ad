@@ -121,7 +121,8 @@ globalThis.BiliSkipPopup = function mountPopup({ root, background, command, open
       $("analyze").disabled = true;
       $("online").disabled = true;
     }
-    $("toggle").textContent = settings.autoSkip ? "自动跳过：开" : "开启自动跳过";
+    $("toggle").textContent = "自动跳过广告";
+    $("toggle").setAttribute("aria-checked", String(Boolean(settings.autoSkip)));
     $("skip").disabled = busy || !current?.player?.canSkip;
     $("undo").disabled = busy || !current?.player?.canUndo;
     $("upload").hidden = !record || !settings.sharedUpload;
@@ -141,9 +142,15 @@ globalThis.BiliSkipPopup = function mountPopup({ root, background, command, open
         `${record.cueCount} 句字幕 · ${record.model} · ${(record.elapsedMs / 1000).toFixed(2)} 秒`,
       );
       if (record.usage) {
-        lines.push(
-          `参考费用：空闲 ¥${record.usage.offPeakCny.toFixed(6)} / 高峰 ¥${record.usage.peakCny.toFixed(6)}（${record.usage.asOf}）`,
-        );
+        const usage = record.usage;
+        if (Number.isFinite(usage.costCny) && usage.costCny >= 0) {
+          const cost = usage.costCny.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
+          const period = usage.pricingPeriod === "peak" ? "高峰时段" : "空闲时段";
+          const basis = usage.pricingTimeBasis === "record-created" ? " · 按记录时间估算" : "";
+          lines.push(`该结果的识别参考费用：¥${cost}（${period}${basis} · ${usage.asOf}）`);
+        } else {
+          lines.push("该结果的识别参考费用待确认：用量时间或节假日表待补全。");
+        }
       }
     }
     if (current?.metrics) {

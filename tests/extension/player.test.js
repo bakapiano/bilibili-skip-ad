@@ -150,6 +150,9 @@ function fixture({
     },
   };
   const sandbox = {
+    // Playback-only harness; full drawer mounting is exercised in player-panel.test.js.
+    BiliSkipPlayerPanel: () => ({ destroy() {} }),
+    window: { addEventListener() {} },
     document,
     location,
     chrome,
@@ -276,6 +279,24 @@ async function ready(options) {
   f.tick();
   return f;
 }
+
+test("settings readiness waits for a settings payload and survives video route changes", async () => {
+  const pending = deferred();
+  const f = fixture({ handler: () => pending.promise });
+  assert.equal(f.snapshot().settingsReady, false);
+  f.broadcast({ type: "BILISKIP_PROGRESS", route: f.snapshot().video.route, message: "测试进度" });
+  assert.equal(f.snapshot().settingsReady, false);
+  pending.resolve({ ok: true, data: { cueCount: 0 } });
+  await flush();
+  assert.equal(f.snapshot().settingsReady, false);
+  f.broadcast({ type: "BILISKIP_SETTINGS", settings: { petEnabled: true, petMirror: true } });
+  assert.equal(f.snapshot().settingsReady, true);
+  assert.equal(f.snapshot().settings.petMirror, true);
+  f.location.href += "?p=2";
+  f.tick();
+  assert.equal(f.snapshot().settingsReady, true);
+  assert.equal(f.snapshot().settings.petMirror, true);
+});
 
 test("hidden controller exposes the selected subtitle language without adding a page panel", async () => {
   for (const record of [null, sample()]) {
@@ -652,6 +673,32 @@ test("clicking back into an already-skipped ad skips again", async () => {
   assert.equal(f.video.currentTime, 13);
   f.externalSeek(14);
   assert.equal(f.video.currentTime, 20.05);
+});
+
+test("playback snapshots identify automatic skips, repeated seeks and manual actions", async () => {
+  const f = await ready({ settings: { autoSkip: true } });
+  const first = f.snapshot().player.lastSkip;
+  assert.equal(first.automatic, true);
+  assert.equal(first.seconds, 8);
+  assert.equal(first.route, f.snapshot().video.route);
+  first.seconds = 999;
+  assert.equal(f.snapshot().player.lastSkip.seconds, 8, "observers receive a copy");
+  f.finishInternalSeek();
+  f.video.paused = true;
+  f.externalSeek(14);
+  const second = f.snapshot().player.lastSkip;
+  assert.ok(second.id > first.id);
+  assert.equal(second.automatic, true);
+  assert.equal(second.seconds, 6);
+  f.finishInternalSeek();
+  f.button("撤销跳过").click();
+  f.finishInternalSeek();
+  assert.equal(f.snapshot().player.lastSkip, null);
+  f.button("跳至第 1 段结束").click();
+  assert.equal(f.snapshot().player.lastSkip.automatic, false);
+  f.location.href = "https://www.bilibili.com/video/BV1pFUDBKE8Y/";
+  f.tick();
+  assert.equal(f.snapshot().player.lastSkip, null);
 });
 test("explicit seek skips while paused and preserves the paused state", async () => {
   const f = fixture({ settings: { autoSkip: true } });

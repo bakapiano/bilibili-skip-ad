@@ -68,7 +68,7 @@ test("options load, save and retain the automatic-upload opt-out", async () => {
           return { ok: true, data: { records: [], stats: {} } };
         }
         if (message.type === "SAVE_SETTINGS") {
-          settings = validateSettings(message.settings);
+          settings = validateSettings({ ...settings, ...message.settings });
         }
         return { ok: true, data: publicSettings(settings) };
       },
@@ -80,8 +80,9 @@ test("options load, save and retain the automatic-upload opt-out", async () => {
   assert.equal(f.get("auto-upload").checked, true);
   assert.equal(f.get("asr-upload").checked, true);
   f.get("asr-upload").checked = false;
+  await f.get("asr-upload").emit("change");
   f.get("auto-upload").checked = false;
-  await f.get("settings-form").emit("submit");
+  await f.get("auto-upload").emit("change");
   assert.equal(messages.at(-1).settings.autoUpload, false);
   assert.equal(settings.sharedUpload, true);
   assert.equal(settings.asrUpload, false);
@@ -224,4 +225,97 @@ test("third-party source asks for only its optional origins and passes selection
   assert.deepEqual(downloads, ["hf-mirror"]);
   assert.equal(f.get("asr-enabled").checked, false);
   f.close();
+});
+
+function autoSaveFixture(handler = () => {}) {
+  let settings = validateSettings();
+  const messages = [];
+  const f = uiFixture("options", {
+    runtime: {
+      sendMessage: async (message) => {
+        if (message.type === "GET_CACHE") {
+          return { ok: true, data: { records: [], stats: {} } };
+        }
+        if (message.type === "SAVE_SETTINGS") {
+          messages.push(structuredClone(message));
+          const response = await handler(message);
+          if (response) {
+            return response;
+          }
+          settings = validateSettings({ ...settings, ...message.settings });
+        }
+        return { ok: true, data: publicSettings(settings) };
+      },
+    },
+    permissions: { contains: async () => true },
+  });
+  return { ...f, messages, settings: () => settings };
+}
+
+test("auto-save patches are field-scoped, ordered and synthetic changes stay inert", async (t) => {
+  const gate = deferred();
+  let writes = 0;
+  const f = autoSaveFixture(async () => {
+    if (++writes === 1) {
+      await gate.promise;
+    }
+  });
+  t.after(f.close);
+  await flush();
+  f.get("auto-skip").checked = true;
+  await f.get("auto-skip").emit("change", false);
+  assert.equal(writes, 0);
+  const first = f.get("auto-skip").emit("change");
+  await flush();
+  f.get("auto-skip").checked = false;
+  const second = f.get("auto-skip").emit("change");
+  assert.equal(writes, 1);
+  gate.resolve();
+  await Promise.all([first, second]);
+  assert.deepEqual(
+    f.messages.map((row) => row.settings),
+    [{ autoSkip: true }, { autoSkip: false }],
+  );
+  assert.equal(f.get("auto-skip").checked, false);
+  assert.equal(f.settings().autoSkip, false);
+  assert.equal(f.get("save-status").textContent, "已自动保存");
+});
+
+test("an invalid numeric change stays unsaved until corrected and unrelated saves retain its warning", async (t) => {
+  const f = autoSaveFixture();
+  t.after(f.close);
+  await flush();
+  f.get("threshold").value = "0.1";
+  await f.get("threshold").emit("change");
+  assert.equal(f.messages.length, 0);
+  f.get("auto-skip").checked = true;
+  await f.get("auto-skip").emit("change");
+  assert.match(f.get("save-status").textContent, /有效范围/);
+  assert.equal(f.get("retry-save").hidden, false);
+  f.get("threshold").value = "0.93";
+  await f.get("retry-save").emit("click");
+  assert.equal(f.settings().confidenceThreshold, 0.93);
+  assert.equal(f.get("retry-save").hidden, true);
+});
+
+test("failed storage retry uses the latest controls and revoking consent also disables automatic analysis", async (t) => {
+  let fail = true;
+  const f = autoSaveFixture(() =>
+    fail ? { ok: false, error: { message: "synthetic save error" } } : undefined,
+  );
+  t.after(f.close);
+  await flush();
+  f.get("consent").checked = true;
+  await f.get("consent").emit("change");
+  assert.match(f.get("save-status").textContent, /synthetic save error/);
+  fail = false;
+  await f.get("retry-save").emit("click");
+  f.get("auto-analyze").checked = true;
+  await f.get("auto-analyze").emit("change");
+  f.get("consent").checked = false;
+  await f.get("consent").emit("change");
+  assert.equal(f.settings().autoAnalyze, false);
+  assert.equal(f.settings().consent, false);
+  assert.equal(f.get("auto-analyze").checked, false);
+  assert.equal(f.get("auto-analyze").disabled, true);
 });

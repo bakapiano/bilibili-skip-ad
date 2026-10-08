@@ -18,7 +18,7 @@
 [![广告片段](https://img.shields.io/endpoint?url=https%3A%2F%2Fbiliskipad.bakapiano.com%2Fv1%2Fbadges%2Fsegments&style=flat-square&cacheSeconds=300)](https://biliskipad.bakapiano.com/)
 [![节省时间](https://img.shields.io/endpoint?url=https%3A%2F%2Fbiliskipad.bakapiano.com%2Fv1%2Fbadges%2Fsaved-time&style=flat-square&cacheSeconds=300)](https://biliskipad.bakapiano.com/)
 
-[官网](https://biliskipad.bakapiano.com/) · [安装](#安装与使用) · [使用说明](docs/extension.md) · [更新日志](docs/releases/0.1.9.md) · [反馈问题](https://github.com/bakapiano/bilibili-skip-ad/issues)
+[官网](https://biliskipad.bakapiano.com/) · [安装](#安装与使用) · [使用说明](docs/extension.md) · [更新日志](docs/releases/0.2.0.md) · [反馈问题](https://github.com/bakapiano/bilibili-skip-ad/issues)
 
 </div>
 
@@ -30,7 +30,7 @@
 | [Greasy Fork 安装](https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87) | [Chrome 应用商店](https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk) | [下载 ZIP](https://biliskipad.bakapiano.com/downloads/biliskip.zip) · [校验值](https://biliskipad.bakapiano.com/downloads/biliskip.zip.sha256) |
 | Tampermonkey 5.4+，适用于 Chrome / Edge                                                                          | 工具栏弹窗与独立设置页                                                                       | 解压后加载，或直接加载仓库的 `extension/`                                                                                                      |
 
-当前源码：扩展 **0.1.9**，油猴 **0.1.9.1**。官网 ZIP 已更新为 **0.1.9**；商店和 Greasy Fork 按各自发布流程更新。
+当前源码：扩展 **0.2.0**，油猴 **0.2.0.1**。官网、商店和 Greasy Fork 按各自发布流程更新。
 
 <details>
 <summary>统计口径</summary>
@@ -56,6 +56,7 @@
 - 原生进度条仅显示通过评分阈值和时长保护的金色广告区间；试听与撤销保留的片段隐藏标记。开启自动跳过后，播放或主动定位到广告时跳至末尾。
 - 独立的短视频豁免区块：可调分钟数，支持小数；命中后跳过字幕、ASR、广告分析、缓存标记应用和广告跳过。
 - 提供边界试听、手动跳过和撤销功能。
+- 可选宠物提供分析与跳过提示，支持镜像贴边、自定义台词、图片裁剪与音频上传；在设置的「宠物」分区开启。
 - 操作面板位于 Chrome 工具栏图标弹窗，视频页保留原生进度条标记；关闭弹窗后继续处理分析与播放。
 - 支持侧边推荐视频及分 P 切换，按新视频身份更新标记。
 - 按视频、字幕指纹、模型和提示词版本保存本地缓存。

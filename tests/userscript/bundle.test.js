@@ -9,7 +9,8 @@ import { DEFAULT_SETTINGS } from "../../extension/lib/constants.js";
 import { ASR_ASSETS, asrAssetUrl } from "../../userscript/asr-assets.js";
 import { SETTINGS_KEY } from "../../userscript/runtime.js";
 import { gmFixture, lockFixture } from "./fixtures.js";
-import { flush, ref } from "../extension/fixtures.js";
+import { deferred, flush, ref } from "../extension/fixtures.js";
+import { petAssetsSource } from "../../scripts/build-pet-assets.js";
 
 const bundle = await bundleUserscript();
 const license = (await readFile(new URL("../../LICENSE", import.meta.url), "utf8")).trim();
@@ -37,11 +38,22 @@ function browserFixture(options = {}) {
   f.values.set("biliskip:v1:deepseekKey", options.key ?? "test-only-placeholder");
   Object.assign(f.gm.info, options.info);
   Object.assign(f.gm, options.gm);
+  if (options.settingsGate) {
+    // Test-only storage delay exposes the initial controller snapshot before GM responds.
+    const getValue = f.gm.getValue.bind(f.gm);
+    f.gm.getValue = async (key, ...args) => {
+      if (key === SETTINGS_KEY) {
+        await options.settingsGate;
+      }
+      return getValue(key, ...args);
+    };
+  }
   const dom = new JSDOM(
     `<!doctype html><body>
     <div class="bpx-player-container"><video></video>
       <div class="bpx-player-progress-schedule-wrap" style="position:static"></div>
       <div class="bpx-player-shadow-progress-schedule-wrap" style="position:static"></div>
+      <div class="bpx-player-control-bottom-right"></div>
     </div>${options.extension ? '<div id="biliskip-extension-root" hidden></div>' : ""}</body>`,
     {
       url: `https://www.bilibili.com/video/${ref.bvid}/`,
@@ -55,6 +67,7 @@ function browserFixture(options = {}) {
   const shadows = new Map();
   const intervals = new Map();
   const clicks = new Map();
+  const changes = new Map();
   let now = 1000;
   let nextTimer = 1;
   let nextPrompt = null;
@@ -67,6 +80,12 @@ function browserFixture(options = {}) {
         clicks.set(this, []);
       }
       clicks.get(this).push(callback);
+    }
+    if (type === "change") {
+      if (!changes.has(this)) {
+        changes.set(this, []);
+      }
+      changes.get(this).push(callback);
     }
     return addEvent.call(this, type, callback, options);
   };
@@ -118,7 +137,7 @@ function browserFixture(options = {}) {
     Object.defineProperty(video, name, { configurable: true, writable: true, value });
   }
   video.getBoundingClientRect = () => ({ width: 640, height: 360 });
-  vm.runInContext(bundle.code, dom.getInternalVMContext());
+  vm.runInContext(options.code || bundle.code, dom.getInternalVMContext());
   return {
     ...f,
     dom,
@@ -146,7 +165,12 @@ function browserFixture(options = {}) {
     },
     click(element) {
       for (const callback of clicks.get(element) || []) {
-        callback({ isTrusted: true, preventDefault() {} });
+        callback({ isTrusted: true, preventDefault() {}, stopPropagation() {} });
+      }
+    },
+    async change(element, isTrusted = true) {
+      for (const callback of changes.get(element) || []) {
+        await callback({ isTrusted, preventDefault() {}, stopPropagation() {} });
       }
     },
     close() {
@@ -155,6 +179,87 @@ function browserFixture(options = {}) {
     },
   };
 }
+
+test("local pet preview userscript renders actual simulated usage and yields to an extension", async () => {
+  const preview = await bundleUserscript({
+    petPreviewSource: await petAssetsSource({ enabled: true }),
+  });
+  const f = browserFixture({ code: preview.code });
+  try {
+    await settle(() =>
+      f.document.querySelector(".biliskip-pet-title")?.textContent.startsWith("大肥鱼吃了你"),
+    );
+    assert.match(
+      f.document.querySelector(".biliskip-pet-title").textContent,
+      /^大肥鱼吃了你 ¥[\d.]+$/,
+    );
+    assert.equal(f.document.querySelector(".biliskip-pet-detail"), null);
+    assert.doesNotMatch(
+      f.document.querySelector(".biliskip-pet").textContent,
+      /test-only-placeholder/,
+    );
+    f.click(f.document.querySelector(".biliskip-pet-open"));
+    await settle(() => Boolean(f.panel()));
+    await settle(() => f.panel().getElementById("source").textContent === "DeepSeek Flash");
+    f.click(f.panel().getElementById("refresh"));
+    await settle(() => f.document.querySelector(".biliskip-pet-title").textContent === "");
+    assert.equal(f.document.querySelector(".biliskip-pet-bubble").hidden, true);
+    assert.equal(f.document.querySelector(".biliskip-pet").hidden, false);
+    f.video.currentTime = 12;
+    f.tick();
+    assert.equal(f.video.currentTime, 20.05);
+    assert.equal(
+      f.document.querySelector(".biliskip-pet-title").textContent,
+      "跳过 8 秒恰饭片段~ 吃点白饭不过分吧！",
+    );
+    f.click(f.panel().getElementById("undo"));
+    await flush();
+    assert.equal(f.video.currentTime, 12);
+    assert.doesNotMatch(
+      f.document.querySelector(".biliskip-pet-title").textContent,
+      /跳过 \d+ 秒恰饭片段/,
+    );
+    const extension = f.document.createElement("div");
+    extension.id = "biliskip-extension-root";
+    f.document.body.append(extension);
+    f.tick();
+    assert.equal(f.document.querySelector(".biliskip-pet"), null);
+  } finally {
+    f.close();
+  }
+});
+
+test("preview userscript waits for GM settings before its first mirrored appearance", async (t) => {
+  const preview = await bundleUserscript({
+    petPreviewSource: await petAssetsSource({ enabled: true }),
+  });
+  const pending = deferred();
+  const f = browserFixture({
+    code: preview.code,
+    settingsGate: pending.promise,
+    settings: { petEnabled: true, petMirror: true, autoAnalyze: false },
+    key: "",
+  });
+  t.after(() => f.close());
+  await settle(() => Boolean(f.document.getElementById("biliskip-userscript-root")));
+  f.tick();
+  assert.equal(f.document.querySelector(".biliskip-pet"), null);
+  pending.resolve();
+  await settle(() => Boolean(f.document.querySelector(".biliskip-pet")));
+  const host = f.document.querySelector(".biliskip-pet");
+  assert.equal(host.hidden, false);
+  assert.equal(host.dataset.mirrored, "true");
+  assert.equal(host.style.left, "0px");
+  assert.equal(host.style.bottom, "0px");
+  assert.equal(
+    host.querySelector(".biliskip-pet-panel-icon svg").getAttribute("viewBox"),
+    "0 0 256 256",
+  );
+  assert.equal(
+    f.requests.filter(({ details }) => details.url.includes("/chat/completions")).length,
+    0,
+  );
+});
 
 test("single-file artifact declares scoped grants and bundles shared business/player/view sources", () => {
   assert.ok(bundle.code.startsWith("// ==UserScript==\n"));
@@ -170,6 +275,7 @@ test("single-file artifact declares scoped grants and bundles shared business/pl
   assert.match(bundle.code, /@grant\s+GM\.getResourceUrl/);
   assert.match(bundle.code, /^\/\/ @license\s+MIT$/m);
   assert.ok(bundle.code.includes(`/*\n${license}\n*/`));
+  assert.ok(bundle.code.includes("宠物图片与音效来源"));
   assert.doesNotMatch(bundle.code, /@sandbox|sandboxMode|DOM 隔离/);
   for (const grant of ["GM.getValue", "GM.setValue", "GM.xmlHttpRequest"]) {
     assert.ok(bundle.code.includes(`// @grant        ${grant}`));
@@ -188,8 +294,8 @@ test("single-file artifact declares scoped grants and bundles shared business/pl
     "extension/lib/service.js",
     "extension/lib/providers.js",
     "extension/lib/bilibili.js",
-    "extension/popup.html",
-    "extension/popup.css",
+    "extension/player-assets.js",
+    "extension/player-panel.js",
   ]) {
     assert.ok(bundle.inputs.includes(file), file);
   }
@@ -537,4 +643,170 @@ test("combined shared-service and ASR-resource outages preserve analysis, local 
     }
     assert.equal(f.alerts.length, 0);
   }
+});
+
+test("userscript switches and number controls auto-save and preserve an unrelated failed field", async (t) => {
+  const f = browserFixture();
+  t.after(() => f.close());
+  await f.menu("BiliSkip · 设置");
+  const root = f.panel();
+  await settle(() => root.getElementById("key-state").textContent.includes("已配置"));
+  const toggle = root.getElementById("setting-asrUpload");
+  assert.equal(toggle.getAttribute("role"), "switch");
+  const titles = root.querySelectorAll("#settings-panel .settings-section > h3");
+  assert.equal(titles.length, 7);
+  assert.equal(root.querySelector("#pet-section > h3").textContent.trim(), "宠物");
+  for (const title of titles) {
+    assert.ok(title.querySelector(".section-icon svg"));
+    assert.equal(title.querySelector(".section-icon").getAttribute("aria-hidden"), "true");
+  }
+  for (const row of root.querySelectorAll(".switch-row")) {
+    assert.equal(row.firstElementChild.getAttribute("role"), "switch");
+    assert.equal(row.lastElementChild.tagName, "SPAN");
+  }
+  toggle.checked = false;
+  await f.change(toggle, false);
+  assert.equal(f.values.get(SETTINGS_KEY).asrUpload, true);
+  await f.change(toggle);
+  assert.equal(f.values.get(SETTINGS_KEY).asrUpload, false);
+  const number = root.getElementById("short-minutes");
+  number.value = "-1";
+  await f.change(number);
+  assert.match(root.getElementById("settings-status").textContent, /有效范围/);
+  assert.equal(f.values.get(SETTINGS_KEY).shortVideoMinutes, 3);
+  toggle.checked = true;
+  await f.change(toggle);
+  assert.match(root.getElementById("settings-status").textContent, /有效范围/);
+  number.value = "1.5";
+  await f.change(number);
+  assert.equal(f.values.get(SETTINGS_KEY).shortVideoMinutes, 1.5);
+  assert.equal(root.getElementById("retry-save").hidden, true);
+  f.click(root.getElementById("close-panel"));
+  await f.menu("BiliSkip · 设置");
+  await settle(() => f.panel()?.getElementById("short-minutes").value === "1.5");
+});
+
+test("native userscript button opens the drawer, remounts once and yields to an installed extension", async (t) => {
+  const f = browserFixture();
+  t.after(() => f.close());
+  await settle(() => f.document.querySelector(".biliskip-player-button"));
+  let button = f.document.querySelector(".biliskip-player-button");
+  button.click();
+  assert.equal(f.panel(), undefined, "synthetic click stays inert");
+  f.click(button);
+  await settle(() => f.panel());
+  assert.equal(button.getAttribute("aria-expanded"), "true");
+  assert.equal(f.panel().querySelectorAll(".project-links a").length, 2);
+  f.click(button);
+  assert.equal(f.panel(), undefined);
+  const controls = f.document.querySelector(".bpx-player-control-bottom-right");
+  controls.replaceWith(controls.cloneNode(false));
+  f.tick();
+  assert.equal(f.document.querySelectorAll(".biliskip-player-button").length, 1);
+  button = f.document.querySelector(".biliskip-player-button");
+  f.click(button);
+  await settle(() => f.panel());
+  const extension = f.document.createElement("div");
+  extension.id = "biliskip-extension-root";
+  f.document.body.append(extension);
+  f.tick();
+  assert.equal(f.document.querySelectorAll(".biliskip-player-button").length, 0);
+  assert.equal(f.document.getElementById("biliskip-userscript-panel"), null);
+});
+
+test("userscript pet preferences persist in GM and update the shared live pet", async (t) => {
+  const f = browserFixture({ settings: { autoAnalyze: false } });
+  t.after(() => f.close());
+  await f.menu("BiliSkip · 设置");
+  const root = f.panel();
+  await settle(() => root.getElementById("pet-save-status").textContent.includes("自动保存"));
+  const enabled = root.getElementById("pet-enabled");
+  enabled.checked = true;
+  await f.change(enabled);
+  await settle(() => f.document.querySelector(".biliskip-pet"));
+  const mirror = root.getElementById("pet-mirror");
+  mirror.checked = true;
+  await f.change(mirror);
+  await settle(() => f.document.querySelector(".biliskip-pet")?.dataset.mirrored === "true");
+  const scene = root.getElementById("pet-scene");
+  scene.value = "skip";
+  await f.change(scene);
+  assert.equal(root.getElementById("pet-detail"), null);
+  const title = root.getElementById("pet-title");
+  title.value = "跳过 {seconds} 秒啦";
+  await f.change(title);
+  assert.equal(f.values.get(SETTINGS_KEY).petDialogues.skip.title, title.value);
+  assert.equal(f.values.get(SETTINGS_KEY).petMirror, true);
+  enabled.checked = false;
+  await f.change(enabled);
+  await settle(() => !f.document.querySelector(".biliskip-pet"));
+  f.click(root.getElementById("close-panel"));
+  await f.menu("BiliSkip · 设置");
+  await settle(() => f.panel()?.getElementById("pet-mirror").checked === true);
+  assert.equal(f.panel().getElementById("pet-enabled").checked, false);
+});
+
+test("userscript loads legacy GM captions as one title and writes the migrated version on save", async (t) => {
+  const f = browserFixture({
+    settings: {
+      autoAnalyze: false,
+      petDialogueVersion: 1,
+      petDialogues: { idle: { title: "我在", detail: "陪你看视频" } },
+    },
+  });
+  t.after(() => f.close());
+  await f.menu("BiliSkip · 设置");
+  const root = f.panel();
+  await settle(() => root.getElementById("pet-title").value === "我在\n陪你看视频");
+  const mirror = root.getElementById("pet-mirror");
+  mirror.checked = true;
+  await f.change(mirror);
+  assert.equal(f.values.get(SETTINGS_KEY).petDialogueVersion, 4);
+  assert.deepEqual(f.values.get(SETTINGS_KEY).petDialogues, {
+    idle: { title: "我在\n陪你看视频" },
+  });
+});
+
+test("userscript custom audio uses local files and GM storage, then restores default sounds", async (t) => {
+  const f = browserFixture({ settings: { autoAnalyze: false } });
+  t.after(() => f.close());
+  // Test-only media metadata stand-in. Real decode is verified in Chromium.
+  f.window.Audio = class extends f.window.EventTarget {
+    duration = 0.24;
+    set src(_value) {
+      queueMicrotask(() => this.dispatchEvent(new f.window.Event("loadedmetadata")));
+    }
+    removeAttribute() {}
+    load() {}
+  };
+  f.window.URL.createObjectURL = () => "blob:userscript-test";
+  f.window.URL.revokeObjectURL = () => {};
+  await f.menu("BiliSkip · 设置");
+  const root = f.panel();
+  await settle(() => root.getElementById("pet-save-status").textContent.includes("自动保存"));
+  const bytes = await readFile(new URL("../../assets/pet/press.mp3", import.meta.url));
+  const input = root.getElementById("pet-audio-file");
+  Object.defineProperty(input, "files", {
+    value: [
+      {
+        name: "click.mp3",
+        type: "audio/mpeg",
+        size: bytes.length,
+        arrayBuffer: async () => Uint8Array.from(bytes).buffer,
+      },
+    ],
+  });
+  await f.change(input);
+  assert.equal(f.values.get(SETTINGS_KEY).petAudioName, "click.mp3");
+  assert.equal(
+    f.values.get(SETTINGS_KEY).petAudio,
+    `data:audio/mpeg;base64,${bytes.toString("base64")}`,
+  );
+  assert.equal(
+    f.requests.some(({ details }) => String(details.data || "").includes("data:audio/")),
+    false,
+  );
+  f.click(root.getElementById("pet-audio-reset"));
+  await settle(() => f.values.get(SETTINGS_KEY).petAudio === "");
+  assert.equal(f.values.get(SETTINGS_KEY).petAudioName, "");
 });

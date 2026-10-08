@@ -5,6 +5,8 @@
 
 ## 使用与开发
 
+- [宠物本地预览](pet-preview.md)：气泡动画、单次费用、分组台词、镜像贴边与图片上传裁剪。
+- [宠物默认资源](../assets/pet/README.md)：默认角色与音效、校验清单及来源说明。
 - [本地Prompt评测环境](../prompt/README.md)：`prompt/`下的614份有效字幕、三项指标、并发试跑及新旧Prompt回归对比。
 - [Chrome 扩展安装、架构和开发说明](extension.md)
 - [油猴安装、构建与代码共享](../userscript/README.md)
@@ -15,6 +17,8 @@
 - [本地语音识别接入设计](local-asr-integration.md)
 - [本地ASR试用说明](asr-trial.md)
 - [0.1.9更新日志](releases/0.1.9.md)
+- [0.1.10更新日志](releases/0.1.10.md)
+- [0.2.0更新日志](releases/0.2.0.md)
 - [语音模型自有域名与提前下载验收](testing/model-download-2026-10-01.md)
 - [油猴WASM/VAD资源与SRI瘦身](testing/userscript-sri-2026-10-01.md)
 
@@ -25,6 +29,11 @@
 - [一分钟介绍视频稿](../store/intro-video-script.md)
 
 ## 验证记录
+
+- [0.2.0打包验收](testing/release-0.2.0-2026-10-08.md)：版本一致性、正式扩展与油猴包、完整性校验和提交范围。
+- [宠物验收](testing/pet-preview-2026-10-08.md)：默认资源、分组台词、自定义音频、启动就绪与首帧布局。
+
+- [图标与自动保存UI预览](testing/ui-preview-2026-10-03.md)：保持版本号的本地预览，播放器右侧面板、自动保存、开关和全屏回归。
 
 - [油猴0.1.9.1可选ASR降级](testing/userscript-fallback-0.1.9.1.md)：资源缺失、超时和校验失败隔离；字幕、缓存、跳过及共享服务组合故障。
 

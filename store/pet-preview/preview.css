@@ -1,0 +1,98 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f1f6fc;
+  color: #263d5d;
+  font:
+    16px/1.8 system-ui,
+    "Microsoft YaHei",
+    sans-serif;
+}
+main {
+  width: min(900px, calc(100% - 64px));
+  margin: 60px auto;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.brand {
+  font-size: 27px;
+  font-weight: 800;
+  color: #078dad;
+}
+.tag {
+  font-size: 12px;
+  padding: 2px 12px;
+  background: #e2eaf7;
+  color: #6a7c9a;
+  border-radius: 7px;
+}
+h1 {
+  font-size: 48px;
+  line-height: 1.4;
+  letter-spacing: -1px;
+  margin: 44px 0 20px;
+}
+.intro {
+  color: #61748f;
+}
+.demo-card {
+  background: #fff;
+  border: 1px solid #dce5f1;
+  border-radius: 20px;
+  padding: 26px 30px;
+  margin-top: 40px;
+  box-shadow: 0 8px 30px #3b64820a;
+}
+h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.demo-card p,
+.note {
+  font-size: 13px;
+  color: #7587a0;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.actions button {
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: 1px solid #c8d9ec;
+  color: #40628b;
+  background: #f7faff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+}
+.actions button:first-child {
+  background: #567daf;
+  color: #fff;
+  border-color: #567daf;
+}
+output {
+  display: block;
+  margin-top: 22px;
+  color: #73859b;
+  font-size: 13px;
+}
+.note {
+  margin-top: 25px;
+}
+@media (max-width: 700px) {
+  h1 {
+    font-size: 34px;
+  }
+  main {
+    margin-top: 30px;
+  }
+}

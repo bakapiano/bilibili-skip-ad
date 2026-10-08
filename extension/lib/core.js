@@ -7,6 +7,8 @@ import {
   PRICING,
 } from "./constants.js";
 import { modelSource } from "./asr-config.js";
+import { validatePetSettings } from "./pet-config.js";
+import { selectUsagePrice } from "./pricing.js";
 
 export class AppError extends Error {
   constructor(code, message, details = undefined) {
@@ -282,9 +284,12 @@ export function validateSettings(input = {}) {
     "SETTINGS",
     "共享功能需要配置公开服务域名。",
   );
-  return settings;
+  return {
+    ...settings,
+    ...validatePetSettings(input, (condition, message) => assert(condition, "SETTINGS", message)),
+  };
 }
-export function usageCost(raw) {
+export function usageCost(raw, timestamp = Date.now()) {
   assert(
     raw &&
       Number.isSafeInteger(raw.prompt_tokens) &&
@@ -308,20 +313,23 @@ export function usageCost(raw) {
   const output = raw.completion_tokens;
   const calculate = (rates) =>
     Number(((hit * rates.hit + miss * rates.miss + output * rates.output) / 1e6).toFixed(8));
-  return {
-    promptTokens: raw.prompt_tokens,
-    outputTokens: output,
-    cacheHit: hit,
-    cacheMiss: miss,
-    offPeakCny: calculate(PRICING.offPeak),
-    peakCny: calculate(PRICING.peak),
-    asOf: PRICING.asOf,
-    cacheBasis:
-      raw.prompt_cache_hit_tokens !== undefined ||
-      raw.prompt_tokens_details?.cached_tokens !== undefined
-        ? "measured"
-        : "all-miss-estimate",
-  };
+  return selectUsagePrice(
+    {
+      promptTokens: raw.prompt_tokens,
+      outputTokens: output,
+      cacheHit: hit,
+      cacheMiss: miss,
+      offPeakCny: calculate(PRICING.offPeak),
+      peakCny: calculate(PRICING.peak),
+      asOf: PRICING.asOf,
+      cacheBasis:
+        raw.prompt_cache_hit_tokens !== undefined ||
+        raw.prompt_tokens_details?.cached_tokens !== undefined
+          ? "measured"
+          : "all-miss-estimate",
+    },
+    timestamp,
+  );
 }
 export function publicRecord(record, source = record.source) {
   return {
@@ -336,7 +344,10 @@ export function publicRecord(record, source = record.source) {
     promptVersion: record.promptVersion,
     createdAt: record.createdAt,
     cueCount: record.cueCount,
-    usage: record.usage,
+    usage:
+      record.usage && Object.hasOwn(record.usage, "costCny")
+        ? record.usage
+        : selectUsagePrice(record.usage, record.createdAt, "record-created"),
     elapsedMs: record.elapsedMs,
   };
 }
