@@ -73,13 +73,14 @@ test("native install choices display the corresponding instructions without site
   );
   userscript.labels[0].click();
   expectSelection(false);
-  assert.equal(document.querySelectorAll("script").length, 1);
-  assert.equal(
-    document.querySelector("script").getAttribute("src"),
-    "/stats.js?v={{ASSET_VERSION}}",
+  assert.deepEqual(
+    [...document.querySelectorAll("script")].map((script) => script.getAttribute("src")),
+    ["/stats.js?v={{ASSET_VERSION}}", "/assets/navigation.js?v={{ASSET_VERSION}}"],
   );
-  assert.equal(document.querySelector("script").defer, true);
-  assert.equal(document.querySelector("script").textContent, "");
+  for (const script of document.querySelectorAll("script")) {
+    assert.equal(script.defer, true);
+    assert.equal(script.textContent, "");
+  }
 });
 
 test("public installation docs share the released Chrome store entry", async () => {
@@ -126,9 +127,14 @@ test("landing page build resolves versions and ships only explicit public assets
     assert.equal(/\son\w+=|<iframe\b/i.test(html), false);
     const dom = new JSDOM(html);
     const scripts = [...dom.window.document.querySelectorAll("script")];
-    assert.equal(scripts.length, name === "privacy.html" ? 0 : 1);
+    assert.equal(scripts.length, name === "privacy.html" ? 0 : 2);
     for (const script of scripts) {
-      assert.equal(script.getAttribute("src"), `/stats.js?v=${result.assetVersion}`);
+      assert.ok(
+        [
+          `/stats.js?v=${result.assetVersion}`,
+          `/assets/navigation.js?v=${result.assetVersion}`,
+        ].includes(script.getAttribute("src")),
+      );
       assert.equal(script.textContent, "");
     }
     dom.window.close();
@@ -170,7 +176,7 @@ test("site download links and privacy descriptions match extension settings", as
   assert.match(privacy, /每段最多 10 条证据，每条最多 500 字符/);
   assert.match(privacy, /7 个 UTC/);
   assert.match(privacy, /1000ms/);
-  assert.match(home, /<h1>B站植入广告跳过插件<\/h1>/);
+  assert.match(home, /<h1 id="overview-title">B站植入广告跳过插件<\/h1>/);
   assert.match(home, /实际效果/);
   assert.equal(/工作方式示意|把时间，|观看节奏|把注意力/.test(home), false);
 });
@@ -305,7 +311,13 @@ test("site theme navigation icons and real demo links are present on every page"
     assert.equal(links.length, 4);
     assert.equal(dom.window.document.querySelectorAll('a[href*="/results"]').length, 0);
     for (const link of links) {
-      assert.ok(link.querySelector('svg[aria-hidden="true"]'));
+      if (link.href.includes("github.com")) {
+        const icon = link.querySelector('img.nav-icon[alt=""]');
+        assert.ok(icon);
+        assert.equal(icon.getAttribute("src"), "/assets/github.svg?v={{ASSET_VERSION}}");
+      } else {
+        assert.ok(link.querySelector('svg[aria-hidden="true"]'));
+      }
     }
     if (file === "index.html") {
       const demo = dom.window.document.querySelector(".demo-result");
@@ -316,4 +328,38 @@ test("site theme navigation icons and real demo links are present on every page"
     }
     dom.window.close();
   }
+});
+
+test("website GitHub mark matches the licensed icon used by the extension", async () => {
+  const siteIcon = await readFile(
+    new URL("../server/site/assets/github.svg", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    siteIcon,
+    await readFile(new URL("../extension/icons/link-github.svg", import.meta.url), "utf8"),
+  );
+  assert.match(siteIcon, /Copyright \(c\) 2026 GitHub Inc/);
+});
+
+test("homepage and privacy branding use the reviewed TV icon with cache-busted URLs", async () => {
+  for (const filename of ["index.html", "privacy.html"]) {
+    const dom = new JSDOM(await readFile(path.join(root, "server/site", filename), "utf8"));
+    const { document } = dom.window;
+    for (const image of document.querySelectorAll(".brand img, .intro-icon")) {
+      assert.equal(image.getAttribute("src"), "/assets/site-icon.svg?v={{ASSET_VERSION}}");
+    }
+    assert.equal(
+      document.querySelector('link[rel="icon"]').getAttribute("href"),
+      "/assets/site-icon.svg?v={{ASSET_VERSION}}",
+    );
+    if (filename === "index.html") {
+      assert.ok(document.querySelector(".intro .intro-icon"));
+    }
+    dom.window.close();
+  }
+  assert.equal(
+    await readFile(path.join(root, "server/site/assets/site-icon.svg"), "utf8"),
+    await readFile(path.join(root, "store/icons/biliskip-tv-coin.svg"), "utf8"),
+  );
 });

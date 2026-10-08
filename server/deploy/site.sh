@@ -15,7 +15,7 @@ printf '%s  %s\n' "$expected" "$bundle" | sha256sum --check -
 while IFS= read -r file; do
     case "$file" in
         server/app.js|server/store.js|server/validation.js|server/deploy/nginx.conf) ;;
-        site/index.html|site/privacy.html|site/site.css|site/stats.js|site/assets/site-icon.svg|site/assets/icon.png|site/assets/ad-markers.png|site/assets/auto-skip.png) ;;
+        site/index.html|site/privacy.html|site/site.css|site/stats.js|site/assets/site-icon.svg|site/assets/github.svg|site/assets/navigation.js|site/assets/icon.png|site/assets/ad-markers.png|site/assets/auto-skip.png|site/assets/pet-bubble.jpg|site/assets/pet-player.jpg|site/assets/pet-settings.jpg) ;;
         *) echo 'Unexpected site archive entry.' >&2; exit 1 ;;
     esac
 done < <(tar -tzf "$bundle")

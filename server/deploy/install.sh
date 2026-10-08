@@ -28,7 +28,7 @@ printf '%s  %s\n' "$expected_sha" "$bundle" | sha256sum --check -
 while IFS= read -r entry; do
     case "$entry" in
         LICENSE|package.json|server/*.js|server/deploy/compose.yaml|server/deploy/nginx.conf|server/deploy/nginx-http.conf) ;;
-        site/index.html|site/privacy.html|site/site.css|site/stats.js|site/assets/site-icon.svg|site/assets/icon.png|site/assets/ad-markers.png|site/assets/auto-skip.png|site/downloads/biliskip-*.zip|site/downloads/biliskip-*.zip.sha256) ;;
+        site/index.html|site/privacy.html|site/site.css|site/stats.js|site/assets/site-icon.svg|site/assets/github.svg|site/assets/navigation.js|site/assets/icon.png|site/assets/ad-markers.png|site/assets/auto-skip.png|site/assets/pet-bubble.jpg|site/assets/pet-player.jpg|site/assets/pet-settings.jpg|site/downloads/biliskip-*.zip|site/downloads/biliskip-*.zip.sha256) ;;
         site/downloads/biliskip.zip|site/downloads/biliskip.zip.sha256) ;;
         *) echo "Unexpected archive entry: $entry" >&2; exit 1 ;;
     esac

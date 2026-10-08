@@ -5,29 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="BiliSkip 是一个 B站植入广告跳过插件。使用字幕和 DeepSeek 识别广告区间，提供进度条标记、自动跳过和共享缓存。"
+      content="BiliSkip 使用字幕和 DeepSeek 识别 B站恰饭片段，提供进度条标记、自动跳过和共享缓存。0.2 新增可选宠物，支持状态气泡、点击互动、图片与音效自定义。"
     />
     <meta name="theme-color" content="#f2f7ff" />
     <meta property="og:title" content="BiliSkip — B站植入广告跳过插件" />
     <meta
       property="og:description"
-      content="选择 Chrome 扩展或油猴脚本安装，通过字幕识别广告，提供标记、自动跳过、试听、撤销和共享缓存。"
+      content="选择 Chrome 扩展或油猴脚本，用 DeepSeek 识别并自动跳过恰饭片段。0.2 新增宠物气泡、戳一戳互动与图片、音效自定义。"
     />
     <meta
       property="og:image"
       content="https://biliskipad.bakapiano.com/assets/auto-skip.png?v={{ASSET_VERSION}}"
     />
     <link rel="canonical" href="https://biliskipad.bakapiano.com/" />
-    <link rel="icon" type="image/svg+xml" href="/assets/site-icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/assets/site-icon.svg?v={{ASSET_VERSION}}" />
     <link rel="stylesheet" href="/site.css?v={{ASSET_VERSION}}" />
     <script src="/stats.js?v={{ASSET_VERSION}}" defer></script>
+    <script src="/assets/navigation.js?v={{ASSET_VERSION}}" defer></script>
     <title>BiliSkip — B站植入广告跳过插件</title>
   </head>
-  <body>
+  <body class="home-page">
     <a class="skip-link" href="#main">跳到正文</a>
     <header class="site-header wrap">
       <a class="brand" href="/" aria-label="BiliSkip 首页"
-        ><img src="/assets/site-icon.svg" width="34" height="34" alt="" /><span>BiliSkip</span
+        ><img src="/assets/site-icon.svg?v={{ASSET_VERSION}}" width="34" height="34" alt="" /><span
+          >BiliSkip</span
         ><span class="version">{{VERSION}}</span></a
       >
       <nav aria-label="主导航">
@@ -51,339 +53,514 @@
           >隐私</a
         >
         <a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
-          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m8 8-4 4 4 4m8-8 4 4-4 4M14 4l-4 16" /></svg
-          >GitHub</a
+          ><img
+            class="nav-icon"
+            src="/assets/github.svg?v={{ASSET_VERSION}}"
+            width="17"
+            height="17"
+            alt=""
+          />GitHub</a
         >
       </nav>
     </header>
-    <main id="main" class="wrap">
-      <section class="intro">
-        <p class="eyebrow">BILISKIP / 开源浏览器工具</p>
-        <h1>B站植入广告跳过插件</h1>
-        <p class="lead">从视频字幕中识别赞助口播等广告片段，在进度条上标记，并按设置自动跳过。</p>
-        <p>识别使用你自己的 DeepSeek API Key。已有结果会优先从本地或共享缓存读取。</p>
-        <div class="download-row">
-          <a class="download" href="#install">选择安装方式</a
-          ><a
-            href="https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Chrome 商店安装</a
-          ><a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
-            >源代码</a
+    <main id="main" class="wrap home-layout" tabindex="-1">
+      <aside class="home-sidebar" aria-label="页面目录">
+        <p class="sidebar-caption">了解 BiliSkip</p>
+        <nav id="home-navigation" aria-label="首页分区导航">
+          <a href="#overview" aria-current="location"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9" /></svg
+            >项目介绍</a
           >
-        </div>
-        <p class="release-note">
-          本站 ZIP 为 v{{VERSION}}；Chrome 商店与 Greasy Fork 的版本以各自页面为准。
-        </p>
-      </section>
-
-      <section class="cache-statistics" aria-labelledby="cache-statistics-title">
-        <h2 id="cache-statistics-title" class="visually-hidden">共享缓存统计</h2>
-        <dl class="stat-values" aria-live="polite">
-          <div>
-            <dt>已缓存视频</dt>
-            <dd id="stats-videos">—</dd>
-          </div>
-          <div>
-            <dt>累计节省时间</dt>
-            <dd id="stats-saved">—</dd>
-          </div>
-        </dl>
-        <p class="note" id="stats-status">正在读取线上缓存统计…</p>
-        <noscript><p class="note">启用 JavaScript 后可查看实时缓存统计。</p></noscript>
-      </section>
-
-      <section id="install" class="section install">
-        <h2>安装 BiliSkip</h2>
-        <fieldset class="install-switch">
-          <legend class="visually-hidden">选择安装方式</legend>
-          <input
-            class="install-choice"
-            type="radio"
-            name="install-method"
-            id="install-userscript"
-            value="userscript"
-            aria-controls="install-userscript-panel"
-            checked
-          />
-          <label class="install-option" for="install-userscript">
-            <svg
-              class="install-option-icon"
-              viewBox="0 0 32 32"
-              width="32"
-              height="32"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <rect x="2" y="3" width="28" height="26" rx="6" fill="#30343b" />
-              <circle cx="10.5" cy="17" r="4" fill="#fff" />
-              <circle cx="21.5" cy="17" r="4" fill="#fff" />
-            </svg>
-            <span class="install-option-copy">
-              <strong>油猴脚本</strong
-              ><span class="install-option-detail">通过 Tampermonkey 安装和管理</span>
-            </span>
-          </label>
-          <input
-            class="install-choice"
-            type="radio"
-            name="install-method"
-            id="install-chrome"
-            value="chrome"
-            aria-controls="install-chrome-panel"
-          />
-          <label class="install-option" for="install-chrome">
-            <svg
-              class="install-option-icon"
-              viewBox="0 0 32 32"
-              width="32"
-              height="32"
-              aria-hidden="true"
-              focusable="false"
-            >
+          <a href="#community"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path
-                d="M16 2a14 14 0 0 1 12.13 7H16a7 7 0 0 0-6.06 10.5L3.87 9A14 14 0 0 1 16 2Z"
-                fill="#ea4335"
-              />
-              <path d="M3.87 9A14 14 0 0 0 16 30l6.06-10.5a7 7 0 0 1-12.12 0Z" fill="#34a853" />
-              <path d="M28.13 9A14 14 0 0 1 16 30l6.06-10.5A7 7 0 0 0 16 9Z" fill="#fbbc05" />
-              <circle cx="16" cy="16" r="7" fill="#fff" />
-              <circle cx="16" cy="16" r="5.5" fill="#4285f4" />
-            </svg>
-            <span class="install-option-copy">
-              <strong>Chrome 扩展</strong
-              ><span class="install-option-detail">从 Chrome 应用商店直接安装</span>
-            </span>
-          </label>
-          <div class="install-panels">
-            <section
-              class="install-panel"
-              id="install-chrome-panel"
-              aria-labelledby="install-chrome-title"
+                d="M7 18H6a4 4 0 0 1-.4-8A6.5 6.5 0 0 1 18 8a5 5 0 0 1 0 10h-1M12 12v9m-3-6 3-3 3 3"
+              /></svg
+            >共享缓存</a
+          >
+          <a href="#install"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5" /></svg
+            >安装方式</a
+          >
+          <a href="#examples"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="3" />
+              <path d="m10 8 6 4-6 4V8Z" /></svg
+            >实际效果</a
+          >
+          <a href="#pet"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 10 3 3l7 4h4l7-4-2 7v5a7 7 0 0 1-14 0v-5Z" />
+              <path d="M8 13h.01M16 13h.01m-6 4 2 1 2-1" /></svg
+            >宠物搭子</a
+          >
+          <a href="#features"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="2" />
+              <rect x="14" y="3" width="7" height="7" rx="2" />
+              <rect x="3" y="14" width="7" height="7" rx="2" />
+              <rect x="14" y="14" width="7" height="7" rx="2" /></svg
+            >功能说明</a
+          >
+          <a href="#notes"
+            ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v6m0-10v.01" /></svg
+            >使用须知</a
+          >
+        </nav>
+      </aside>
+      <div class="home-content">
+        <section class="intro" id="overview" aria-labelledby="overview-title" tabindex="-1">
+          <div class="intro-heading">
+            <div>
+              <p class="eyebrow">BILISKIP / 开源浏览器工具</p>
+              <h1 id="overview-title">B站植入广告跳过插件</h1>
+            </div>
+            <img
+              class="intro-icon"
+              src="/assets/site-icon.svg?v={{ASSET_VERSION}}"
+              width="96"
+              height="96"
+              alt="BiliSkip 蓝色电视与广告屏蔽图标"
+            />
+          </div>
+          <p class="lead">从视频字幕中识别赞助口播等广告片段，在进度条上标记，并按设置自动跳过。</p>
+          <p>识别使用你自己的 DeepSeek API Key。已有结果会优先从本地或共享缓存读取。</p>
+          <a class="pet-announcement" href="#pet"
+            ><span>0.2 新增</span>会提醒、能戳一戳的宠物搭子 <span aria-hidden="true">→</span></a
+          >
+          <div class="download-row">
+            <a class="download" href="#install">选择安装方式</a
+            ><a
+              href="https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Chrome 商店安装</a
+            ><a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
+              >源代码</a
             >
-              <h3 id="install-chrome-title">安装 Chrome 扩展</h3>
-              <p class="note">Chrome 120+ · 本站 ZIP v{{VERSION}} · 商店版本以商店页面为准</p>
-              <div class="download-row">
-                <a
-                  class="download"
-                  href="https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >前往 Chrome 应用商店安装</a
-                >
-              </div>
-              <ol class="steps">
-                <li>打开上面的 Chrome 应用商店页面，点击「添加至 Chrome」并确认安装。</li>
-                <li>在工具栏的扩展菜单中固定 BiliSkip，方便随时打开操作面板。</li>
-                <li>
-                  打开 B站视频，点击工具栏的 BiliSkip 图标。需要新识别时，在设置中填写个人 DeepSeek
-                  API Key 并确认字幕发送授权。
-                </li>
-              </ol>
-              <p class="note">
-                商店安装版通过 Chrome
-                更新。已有油猴版或开发版的用户，请选择一个版本控制播放器；切换安装方式时重新配置个人设置。
-              </p>
-              <details class="offline-install">
-                <summary>ZIP / 源码安装方式</summary>
+          </div>
+          <p class="release-note">
+            本站 ZIP 为 v{{VERSION}}；Chrome 商店与 Greasy Fork 的版本以各自页面为准。
+          </p>
+        </section>
+
+        <section
+          class="cache-statistics"
+          id="community"
+          aria-labelledby="cache-statistics-title"
+          tabindex="-1"
+        >
+          <h2 id="cache-statistics-title" class="visually-hidden">共享缓存统计</h2>
+          <dl class="stat-values" aria-live="polite">
+            <div>
+              <dt>已缓存视频</dt>
+              <dd id="stats-videos">—</dd>
+            </div>
+            <div>
+              <dt>累计节省时间</dt>
+              <dd id="stats-saved">—</dd>
+            </div>
+          </dl>
+          <p class="note" id="stats-status">正在读取线上缓存统计…</p>
+          <noscript><p class="note">启用 JavaScript 后可查看实时缓存统计。</p></noscript>
+        </section>
+
+        <section id="install" class="section install" aria-labelledby="install-title" tabindex="-1">
+          <h2 id="install-title">安装 BiliSkip</h2>
+          <fieldset class="install-switch">
+            <legend class="visually-hidden">选择安装方式</legend>
+            <input
+              class="install-choice"
+              type="radio"
+              name="install-method"
+              id="install-userscript"
+              value="userscript"
+              aria-controls="install-userscript-panel"
+              checked
+            />
+            <label class="install-option" for="install-userscript">
+              <svg
+                class="install-option-icon"
+                viewBox="0 0 32 32"
+                width="32"
+                height="32"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <rect x="2" y="3" width="28" height="26" rx="6" fill="#30343b" />
+                <circle cx="10.5" cy="17" r="4" fill="#fff" />
+                <circle cx="21.5" cy="17" r="4" fill="#fff" />
+              </svg>
+              <span class="install-option-copy">
+                <strong>油猴脚本</strong
+                ><span class="install-option-detail">通过 Tampermonkey 安装和管理</span>
+              </span>
+            </label>
+            <input
+              class="install-choice"
+              type="radio"
+              name="install-method"
+              id="install-chrome"
+              value="chrome"
+              aria-controls="install-chrome-panel"
+            />
+            <label class="install-option" for="install-chrome">
+              <svg
+                class="install-option-icon"
+                viewBox="0 0 32 32"
+                width="32"
+                height="32"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M16 2a14 14 0 0 1 12.13 7H16a7 7 0 0 0-6.06 10.5L3.87 9A14 14 0 0 1 16 2Z"
+                  fill="#ea4335"
+                />
+                <path d="M3.87 9A14 14 0 0 0 16 30l6.06-10.5a7 7 0 0 1-12.12 0Z" fill="#34a853" />
+                <path d="M28.13 9A14 14 0 0 1 16 30l6.06-10.5A7 7 0 0 0 16 9Z" fill="#fbbc05" />
+                <circle cx="16" cy="16" r="7" fill="#fff" />
+                <circle cx="16" cy="16" r="5.5" fill="#4285f4" />
+              </svg>
+              <span class="install-option-copy">
+                <strong>Chrome 扩展</strong
+                ><span class="install-option-detail">从 Chrome 应用商店直接安装</span>
+              </span>
+            </label>
+            <div class="install-panels">
+              <section
+                class="install-panel"
+                id="install-chrome-panel"
+                aria-labelledby="install-chrome-title"
+              >
+                <h3 id="install-chrome-title">安装 Chrome 扩展</h3>
+                <p class="note">Chrome 120+ · 本站 ZIP v{{VERSION}} · 商店版本以商店页面为准</p>
                 <div class="download-row">
-                  <a href="/downloads/biliskip.zip" download>下载 ZIP（v{{VERSION}}）</a>
-                  <a href="/downloads/biliskip-{{VERSION}}.zip.sha256">SHA-256</a>
+                  <a
+                    class="download"
+                    href="https://chromewebstore.google.com/detail/oebfplajlnbkabikbcadhhjhjdijahjk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >前往 Chrome 应用商店安装</a
+                  >
                 </div>
                 <ol class="steps">
-                  <li>下载 ZIP，解压到固定文件夹，例如 <code>BiliSkip</code>。</li>
+                  <li>打开上面的 Chrome 应用商店页面，点击「添加至 Chrome」并确认安装。</li>
+                  <li>在工具栏的扩展菜单中固定 BiliSkip，方便随时打开操作面板。</li>
                   <li>
-                    在 Chrome 地址栏输入 <code>chrome://extensions</code>，开启「开发者模式」。
-                  </li>
-                  <li>
-                    点击「加载已解压的扩展程序」，选择包含 <code>manifest.json</code> 的文件夹。
+                    打开 B站视频，点击工具栏的 BiliSkip 图标。需要新识别时，在设置中填写个人
+                    DeepSeek API Key 并确认字幕发送授权。
                   </li>
                 </ol>
                 <p class="note">
-                  ZIP
-                  导入时选择解压后的文件夹。更新时覆盖原目录中的扩展文件，在扩展管理页重新加载，再刷新视频页。
+                  商店安装版通过 Chrome
+                  更新。已有油猴版或开发版的用户，请选择一个版本控制播放器；切换安装方式时重新配置个人设置。
                 </p>
-              </details>
-            </section>
-            <section
-              class="install-panel"
-              id="install-userscript-panel"
-              aria-labelledby="install-userscript-title"
-            >
-              <h3 id="install-userscript-title">安装油猴脚本</h3>
-              <p class="note">Chrome 120+ · Tampermonkey 5.4+ · 通过 Greasy Fork 发布</p>
-              <div class="download-row">
-                <a
-                  class="download"
-                  href="https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >前往 Greasy Fork 安装</a
-                >
-                <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener noreferrer"
-                  >获取 Tampermonkey</a
-                >
-              </div>
-              <ol class="steps">
-                <li>在浏览器中安装 Tampermonkey，并按它的提示完成脚本运行配置。</li>
-                <li>
-                  打开上面的 Greasy Fork 页面，点击「安装此脚本」，再在油猴确认页点击「安装」。
-                </li>
-                <li>刷新 B站视频页，点击工具栏的油猴图标，选择「BiliSkip · 打开面板」。</li>
-                <li>
-                  需要新识别时，通过「BiliSkip · 配置 DeepSeek Key」填入个人 Key，再在「BiliSkip ·
-                  设置」确认字幕发送授权并保存。
-                </li>
-              </ol>
-              <p class="note">后续通过油猴检查脚本更新，安装新版后刷新 B站视频页。</p>
-            </section>
-          </div>
-        </fieldset>
-        <p class="note">
-          两个版本各自保存
-          Key、设置和本地缓存，共用线上缓存。请选择其中一个版本运行；已有共享结果可直接读取。
-        </p>
-      </section>
-
-      <section class="screenshots" aria-labelledby="screenshot-title">
-        <h2 id="screenshot-title">实际效果</h2>
-        <p>金色区间表示广告。Chrome 版通过工具栏弹窗操作，油猴版通过油猴菜单打开面板。</p>
-        <article class="demo-result" aria-labelledby="demo-title">
-          <div class="demo-heading">
-            <span class="result-badge">真实视频识别示例</span
-            ><span class="note">8 分 39 秒 · DeepSeek Flash</span>
-          </div>
-          <h3 id="demo-title">
-            <a
-              href="https://www.bilibili.com/video/BV1pFUDBKE8X/"
-              target="_blank"
-              rel="noopener noreferrer"
-              >【阿三哥的赢学】都怪美国佬 光辉最安全！</a
-            >
-          </h3>
-          <dl class="demo-values">
-            <div>
-              <dt>识别品牌</dt>
-              <dd>转转</dd>
+                <details class="offline-install">
+                  <summary>ZIP / 源码安装方式</summary>
+                  <div class="download-row">
+                    <a href="/downloads/biliskip.zip" download>下载 ZIP（v{{VERSION}}）</a>
+                    <a href="/downloads/biliskip-{{VERSION}}.zip.sha256">SHA-256</a>
+                  </div>
+                  <ol class="steps">
+                    <li>下载 ZIP，解压到固定文件夹，例如 <code>BiliSkip</code>。</li>
+                    <li>
+                      在 Chrome 地址栏输入 <code>chrome://extensions</code>，开启「开发者模式」。
+                    </li>
+                    <li>
+                      点击「加载已解压的扩展程序」，选择包含 <code>manifest.json</code> 的文件夹。
+                    </li>
+                  </ol>
+                  <p class="note">
+                    ZIP
+                    导入时选择解压后的文件夹。更新时覆盖原目录中的扩展文件，在扩展管理页重新加载，再刷新视频页。
+                  </p>
+                </details>
+              </section>
+              <section
+                class="install-panel"
+                id="install-userscript-panel"
+                aria-labelledby="install-userscript-title"
+              >
+                <h3 id="install-userscript-title">安装油猴脚本</h3>
+                <p class="note">Chrome 120+ · Tampermonkey 5.4+ · 通过 Greasy Fork 发布</p>
+                <div class="download-row">
+                  <a
+                    class="download"
+                    href="https://greasyfork.org/zh-CN/scripts/597956-biliskip-ai-%E5%B9%BF%E5%91%8A%E8%B7%B3%E8%BF%87"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >前往 Greasy Fork 安装</a
+                  >
+                  <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener noreferrer"
+                    >获取 Tampermonkey</a
+                  >
+                </div>
+                <ol class="steps">
+                  <li>在浏览器中安装 Tampermonkey，并按它的提示完成脚本运行配置。</li>
+                  <li>
+                    打开上面的 Greasy Fork 页面，点击「安装此脚本」，再在油猴确认页点击「安装」。
+                  </li>
+                  <li>刷新 B站视频页，点击工具栏的油猴图标，选择「BiliSkip · 打开面板」。</li>
+                  <li>
+                    需要新识别时，通过「BiliSkip · 配置 DeepSeek Key」填入个人 Key，再在「BiliSkip ·
+                    设置」确认字幕发送授权并保存。
+                  </li>
+                </ol>
+                <p class="note">后续通过油猴检查脚本更新，安装新版后刷新 B站视频页。</p>
+              </section>
             </div>
-            <div>
-              <dt>广告区间</dt>
-              <dd>02:46.988 → 03:22.480</dd>
-            </div>
-            <div>
-              <dt>广告时长</dt>
-              <dd>35.492 秒</dd>
-            </div>
-            <div>
-              <dt>模型自评分</dt>
-              <dd>0.98</dd>
-            </div>
-          </dl>
-          <p class="demo-reason">
-            <strong>识别理由</strong>军事讲解转为二手回收平台推广及上门回收引导。
-          </p>
-          <div class="demo-links">
-            <a
-              class="button secondary"
-              href="https://www.bilibili.com/video/BV1pFUDBKE8X/"
-              target="_blank"
-              rel="noopener noreferrer"
-              >打开原视频 <span aria-hidden="true">↗</span></a
-            ><a
-              class="button secondary"
-              href="https://www.bilibili.com/video/BV1pFUDBKE8X/?t=167"
-              target="_blank"
-              rel="noopener noreferrer"
-              >从广告起点播放 <span aria-hidden="true">↗</span></a
-            >
-          </div>
+          </fieldset>
           <p class="note">
-            上方为已保存的真实 ASR
-            字幕识别结果（ad-cues-v5-obvious）；下方截图来自站内字幕实测，边界存在小幅差异。评分用于辅助核对。
+            两个版本各自保存
+            Key、设置和本地缓存，共用线上缓存。请选择其中一个版本运行；已有共享结果可直接读取。
           </p>
-        </article>
-        <figure>
-          <a href="/assets/auto-skip.png?v={{ASSET_VERSION}}" aria-label="查看自动跳过效果原图"
-            ><img
-              src="/assets/auto-skip.png?v={{ASSET_VERSION}}"
-              alt="实际 B站播放器截图，进度条显示广告区间，播放位置已跳到区间之后"
-              width="805"
-              height="532"
-              decoding="async"
-          /></a>
-          <figcaption>实测：点击广告内 02:59.9 的位置，自动跳到 03:22.8。</figcaption>
-        </figure>
-        <details class="extra-screenshot">
-          <summary>查看广告前的进度条截图</summary>
+        </section>
+
+        <section class="screenshots" id="examples" aria-labelledby="screenshot-title" tabindex="-1">
+          <h2 id="screenshot-title">实际效果</h2>
+          <p>金色区间表示广告。Chrome 版通过工具栏弹窗操作，油猴版通过油猴菜单打开面板。</p>
+          <article class="demo-result" aria-labelledby="demo-title">
+            <div class="demo-heading">
+              <span class="result-badge">真实视频识别示例</span
+              ><span class="note">8 分 39 秒 · DeepSeek Flash</span>
+            </div>
+            <h3 id="demo-title">
+              <a
+                href="https://www.bilibili.com/video/BV1pFUDBKE8X/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >【阿三哥的赢学】都怪美国佬 光辉最安全！</a
+              >
+            </h3>
+            <dl class="demo-values">
+              <div>
+                <dt>识别品牌</dt>
+                <dd>转转</dd>
+              </div>
+              <div>
+                <dt>广告区间</dt>
+                <dd>02:46.988 → 03:22.480</dd>
+              </div>
+              <div>
+                <dt>广告时长</dt>
+                <dd>35.492 秒</dd>
+              </div>
+              <div>
+                <dt>模型自评分</dt>
+                <dd>0.98</dd>
+              </div>
+            </dl>
+            <p class="demo-reason">
+              <strong>识别理由</strong>军事讲解转为二手回收平台推广及上门回收引导。
+            </p>
+            <div class="demo-links">
+              <a
+                class="button secondary"
+                href="https://www.bilibili.com/video/BV1pFUDBKE8X/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >打开原视频 <span aria-hidden="true">↗</span></a
+              ><a
+                class="button secondary"
+                href="https://www.bilibili.com/video/BV1pFUDBKE8X/?t=167"
+                target="_blank"
+                rel="noopener noreferrer"
+                >从广告起点播放 <span aria-hidden="true">↗</span></a
+              >
+            </div>
+            <p class="note">
+              上方为已保存的真实 ASR
+              字幕识别结果（ad-cues-v5-obvious）；下方截图来自站内字幕实测，边界存在小幅差异。评分用于辅助核对。
+            </p>
+          </article>
           <figure>
-            <a href="/assets/ad-markers.png?v={{ASSET_VERSION}}" aria-label="查看广告标记原图"
+            <a href="/assets/auto-skip.png?v={{ASSET_VERSION}}" aria-label="查看自动跳过效果原图"
               ><img
-                src="/assets/ad-markers.png?v={{ASSET_VERSION}}"
-                alt="实际 B站播放器截图，金色广告区间为 02:46.9 至 03:22.7"
+                src="/assets/auto-skip.png?v={{ASSET_VERSION}}"
+                alt="实际 B站播放器截图，进度条显示广告区间，播放位置已跳到区间之后"
                 width="805"
                 height="532"
-                loading="lazy"
                 decoding="async"
             /></a>
-            <figcaption>同一视频的广告标记：02:46.9–03:22.7。</figcaption>
+            <figcaption>实测：点击广告内 02:59.9 的位置，自动跳到 03:22.8。</figcaption>
           </figure>
-        </details>
-      </section>
+          <details class="extra-screenshot">
+            <summary>查看广告前的进度条截图</summary>
+            <figure>
+              <a href="/assets/ad-markers.png?v={{ASSET_VERSION}}" aria-label="查看广告标记原图"
+                ><img
+                  src="/assets/ad-markers.png?v={{ASSET_VERSION}}"
+                  alt="实际 B站播放器截图，金色广告区间为 02:46.9 至 03:22.7"
+                  width="805"
+                  height="532"
+                  loading="lazy"
+                  decoding="async"
+              /></a>
+              <figcaption>同一视频的广告标记：02:46.9–03:22.7。</figcaption>
+            </figure>
+          </details>
+        </section>
 
-      <section id="features" class="section">
-        <h2>功能</h2>
-        <dl class="features">
-          <div>
-            <dt>广告标记与跳过</dt>
-            <dd>
-              在原生进度条显示广告区间。自动跳过开启后，播放或主动定位进广告时会跳到末尾，重复定位同样生效。
-            </dd>
+        <section id="pet" class="section pet-section" aria-labelledby="pet-title" tabindex="-1">
+          <p class="pet-kicker">0.2 新增 · Chrome / 油猴</p>
+          <h2 id="pet-title">吃白饭，也干活的宠物搭子</h2>
+          <div class="pet-layout">
+            <div class="pet-copy">
+              <p>
+                用 DeepSeek
+                识别并自动跳过恰饭片段时，让宠物用气泡告诉你进展。无聊的时候，也可以戳一戳。
+              </p>
+              <ul class="pet-benefits">
+                <li>
+                  <strong>状态气泡</strong
+                  >：识别、完成与自动跳过都有对应台词，完成后可查看本次参考费用。
+                </li>
+                <li>
+                  <strong>点击互动</strong>：回弹、小黄鸭音效和待机台词，点击气泡里的 Logo
+                  可打开面板。
+                </li>
+                <li><strong>随手安放</strong>：支持拖动、左右镜像与贴底，气泡根据可用空间展开。</li>
+                <li>
+                  <strong>自己定制</strong>：上传并裁剪图片，修改台词，上传点击音频；默认音量 10%。
+                </li>
+              </ul>
+              <p class="pet-enable">
+                <strong>设置 → 宠物 → 开启显示</strong><br />首次安装默认关闭，开启后即可使用。
+              </p>
+              <p class="note">
+                适用于 0.2 及以上版本。本站 ZIP 和商店版本请查看<a href="#install">安装区</a
+                >；也可获取
+                <a
+                  href="https://github.com/bakapiano/bilibili-skip-ad/tree/main/extension"
+                  rel="noopener noreferrer"
+                  >0.2 源码版</a
+                >。
+              </p>
+            </div>
+            <figure class="pet-shot">
+              <a
+                href="/assets/pet-bubble.jpg?v={{ASSET_VERSION}}"
+                aria-label="查看宠物气泡实机截图原图"
+                ><img
+                  src="/assets/pet-bubble.jpg?v={{ASSET_VERSION}}"
+                  width="360"
+                  height="430"
+                  loading="lazy"
+                  decoding="async"
+                  alt="BiliSkip 0.2 宠物实机截图：自动跳过49.6秒恰饭片段后显示蓝边气泡提醒"
+              /></a>
+              <figcaption>实机局部截图：复用共享标记，实际跳过后显示提醒。</figcaption>
+            </figure>
           </div>
-          <div>
-            <dt>试听与撤销</dt>
-            <dd>可以试听广告边界、手动跳过，或撤销跳转回到原位置。</dd>
-          </div>
-          <div>
-            <dt>字幕选择</dt>
-            <dd>按中文、英文、其他语言的顺序尝试可用字幕，同组优先人工字幕。</dd>
-          </div>
-          <div>
-            <dt>本地与共享缓存</dt>
-            <dd>按视频、字幕指纹和模型版本复用结果。识别为 0 段广告的结果也会缓存。</dd>
-          </div>
-          <div>
-            <dt>视频切换</dt>
-            <dd>
-              跟随侧边推荐和分 P 切换更新标记。关闭操作面板后，已开始的分析和自动跳过会继续执行。
-            </dd>
-          </div>
-        </dl>
-      </section>
+          <details class="extra-screenshot pet-details">
+            <summary>查看完整播放器与宠物设置截图</summary>
+            <figure>
+              <a
+                href="/assets/pet-player.jpg?v={{ASSET_VERSION}}"
+                aria-label="查看播放器与宠物完整截图"
+                ><img
+                  src="/assets/pet-player.jpg?v={{ASSET_VERSION}}"
+                  width="960"
+                  height="642"
+                  loading="lazy"
+                  decoding="async"
+                  alt="B站播放器、进度条和自动跳过后的宠物提醒"
+              /></a>
+              <figcaption>Chrome 0.2.0 实机画面，共享标记触发自动跳过。</figcaption>
+            </figure>
+            <figure>
+              <a href="/assets/pet-settings.jpg?v={{ASSET_VERSION}}" aria-label="查看宠物设置截图"
+                ><img
+                  src="/assets/pet-settings.jpg?v={{ASSET_VERSION}}"
+                  width="800"
+                  height="1178"
+                  loading="lazy"
+                  decoding="async"
+                  alt="宠物设置包含显示、镜像、10%音量、音频上传、角色图片裁剪与气泡台词编辑"
+              /></a>
+              <figcaption>在「宠物」分区调整图片、台词与点击音效，修改自动保存。</figcaption>
+            </figure>
+          </details>
+          <p class="pet-credit">
+            灵感参考
+            <a
+              href="https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget"
+              rel="noopener noreferrer"
+              >DSH 的余额挂件</a
+            >，感谢原作者。角色与音效的独立声明见<a
+              href="https://github.com/bakapiano/bilibili-skip-ad/blob/main/assets/pet/NOTICE.md"
+              rel="noopener noreferrer"
+              >素材来源说明</a
+            >。
+          </p>
+        </section>
 
-      <section class="section notes" aria-labelledby="notes-title">
-        <h2 id="notes-title">使用前请了解</h2>
-        <h3>模型费用</h3>
-        <p>
-          新分析由 DeepSeek 按你的 API
-          账户用量计费。命中缓存时直接复用结果；点击「重新分析（再次计费）」会发起新的模型请求。
-        </p>
-        <h3>共享上传</h3>
-        <p>
-          共享查询和自动上传默认开启。新分析结果会先保存本地，再默认上传视频信息和广告标记，旧版还可能附带有限证据句。设置中可以单独关闭自动上传，也可以关闭全部共享上传。
-        </p>
-        <h3>识别准确度</h3>
-        <p>
-          当前依赖可获取的带时间戳字幕，结果会受字幕内容和模型判断影响。建议先试听确认边界，遇到误判可以撤销跳过。
-        </p>
-        <p>
-          <a href="/privacy.html">隐私与数据说明</a> ·
-          <a href="https://github.com/bakapiano/bilibili-skip-ad/issues" rel="noopener noreferrer"
-            >反馈问题</a
-          >（请附上 BV 号和相关时间段）
-        </p>
-      </section>
+        <section id="features" class="section" aria-labelledby="features-title" tabindex="-1">
+          <h2 id="features-title">功能</h2>
+          <dl class="features">
+            <div>
+              <dt>广告标记与跳过</dt>
+              <dd>
+                在原生进度条显示广告区间。自动跳过开启后，播放或主动定位进广告时会跳到末尾，重复定位同样生效。
+              </dd>
+            </div>
+            <div>
+              <dt>试听与撤销</dt>
+              <dd>可以试听广告边界、手动跳过，或撤销跳转回到原位置。</dd>
+            </div>
+            <div>
+              <dt>宠物搭子（0.2）</dt>
+              <dd>
+                状态气泡、点击回弹与音效，支持图片、台词和点击音频自定义。<a href="#pet"
+                  >查看实机截图与开启方式</a
+                >。
+              </dd>
+            </div>
+            <div>
+              <dt>字幕选择</dt>
+              <dd>按中文、英文、其他语言的顺序尝试可用字幕，同组优先人工字幕。</dd>
+            </div>
+            <div>
+              <dt>本地与共享缓存</dt>
+              <dd>按视频、字幕指纹和模型版本复用结果。识别为 0 段广告的结果也会缓存。</dd>
+            </div>
+            <div>
+              <dt>视频切换</dt>
+              <dd>
+                跟随侧边推荐和分 P 切换更新标记。关闭操作面板后，已开始的分析和自动跳过会继续执行。
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="section notes" id="notes" aria-labelledby="notes-title" tabindex="-1">
+          <h2 id="notes-title">使用前请了解</h2>
+          <h3>模型费用</h3>
+          <p>
+            新分析由 DeepSeek 按你的 API
+            账户用量计费。命中缓存时直接复用结果；点击「重新分析（再次计费）」会发起新的模型请求。
+          </p>
+          <h3>共享上传</h3>
+          <p>
+            共享查询和自动上传默认开启。新分析结果会先保存本地，再默认上传视频信息和广告标记，旧版还可能附带有限证据句。设置中可以单独关闭自动上传，也可以关闭全部共享上传。
+          </p>
+          <h3>识别准确度</h3>
+          <p>
+            当前依赖可获取的带时间戳字幕，结果会受字幕内容和模型判断影响。建议先试听确认边界，遇到误判可以撤销跳过。
+          </p>
+          <p>
+            <a href="/privacy.html">隐私与数据说明</a> ·
+            <a href="https://github.com/bakapiano/bilibili-skip-ad/issues" rel="noopener noreferrer"
+              >反馈问题</a
+            >（请附上 BV 号和相关时间段）
+          </p>
+        </section>
+      </div>
     </main>
     <footer class="site-footer wrap">
       <p>

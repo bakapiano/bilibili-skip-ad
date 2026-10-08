@@ -95,6 +95,7 @@ export default defineConfig([
       "extension/asr/pool.js",
       "extension/asr/cues.js",
       "server/site/stats.js",
+      "server/site/assets/navigation.js",
       "store/pet-preview/preview.js",
     ],
     languageOptions: {
@@ -126,6 +127,7 @@ export default defineConfig([
       "extension/pet-state.js",
       "extension/pet-assets.js",
       "server/site/stats.js",
+      "server/site/assets/navigation.js",
       "store/pet-preview/preview.js",
     ],
     languageOptions: { sourceType: "script" },

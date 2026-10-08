@@ -11,8 +11,13 @@ export const SITE_FILES = [
   "site.css",
   "stats.js",
   "assets/site-icon.svg",
+  "assets/github.svg",
+  "assets/navigation.js",
   "assets/ad-markers.png",
   "assets/auto-skip.png",
+  "assets/pet-bubble.jpg",
+  "assets/pet-player.jpg",
+  "assets/pet-settings.jpg",
 ];
 export async function buildSite(outputRoot, archivePath, { version: selectedVersion } = {}) {
   const manifest = JSON.parse(await readFile(path.join(root, "extension/manifest.json"), "utf8"));

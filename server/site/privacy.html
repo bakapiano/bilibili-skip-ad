@@ -8,7 +8,7 @@
       content="了解 BiliSkip 的本地存储、字幕分析、共享缓存与自动上传开关，以及数据保存和反馈方式。"
     />
     <meta name="theme-color" content="#f2f7ff" />
-    <link rel="icon" type="image/svg+xml" href="/assets/site-icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/assets/site-icon.svg?v={{ASSET_VERSION}}" />
     <link rel="stylesheet" href="/site.css?v={{ASSET_VERSION}}" />
     <link rel="canonical" href="https://biliskipad.bakapiano.com/privacy.html" />
     <title>隐私与数据说明 · BiliSkip</title>
@@ -16,7 +16,9 @@
   <body>
     <header class="site-header wrap">
       <a class="brand" href="/"
-        ><img src="/assets/site-icon.svg" width="34" height="34" alt="" /><span>BiliSkip</span></a
+        ><img src="/assets/site-icon.svg?v={{ASSET_VERSION}}" width="34" height="34" alt="" /><span
+          >BiliSkip</span
+        ></a
       >
       <nav aria-label="主导航">
         <a href="/#install"
@@ -39,9 +41,13 @@
           >隐私</a
         >
         <a href="https://github.com/bakapiano/bilibili-skip-ad" rel="noopener noreferrer"
-          ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m8 8-4 4 4 4m8-8 4 4-4 4M14 4l-4 16" /></svg
-          >GitHub</a
+          ><img
+            class="nav-icon"
+            src="/assets/github.svg?v={{ASSET_VERSION}}"
+            width="17"
+            height="17"
+            alt=""
+          />GitHub</a
         >
       </nav>
     </header>
@@ -175,7 +181,9 @@
     </main>
     <footer class="site-footer wrap">
       <a class="brand" href="/"
-        ><img src="/assets/site-icon.svg" width="28" height="28" alt="" /><span>BiliSkip</span></a
+        ><img src="/assets/site-icon.svg?v={{ASSET_VERSION}}" width="28" height="28" alt="" /><span
+          >BiliSkip</span
+        ></a
       >
       <p>由 bakapiano 维护 · 独立开源项目</p>
       <nav aria-label="页脚导航"><a href="/">返回首页</a><a href="/healthz">服务状态</a></nav>
